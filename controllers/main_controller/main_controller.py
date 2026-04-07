@@ -4,113 +4,175 @@ import numpy as np
 from controller import Supervisor
 
 class WebotsVehicleEnv(gym.Env):
+    """
+    Gymnasium environment for autonomous vehicle lane following in Webots.
+
+    This environment simulates a BMW X5 vehicle equipped with LiDAR and camera sensors.
+    The agent learns to control steering and throttle to stay centered on the lane while
+    avoiding collisions.
+
+    Action Space:
+        Box(2,): [steering (-0.5 to 0.5), throttle/brake (-1.0 to 1.0)]
+
+    Observation Space:
+        Dict with:
+        - "lidar": Box(lidar_resolution,): distance measurements (0-100m)
+        - "camera": Box(height, width, 3): RGB image (0-255)
+    """
+
     def __init__(self):
+        """Initialize the Webots vehicle environment."""
         super(WebotsVehicleEnv, self).__init__()
-        
+
+        # Initialize Webots Supervisor for robot control
         self.robot = Supervisor()
         self.timestep = int(self.robot.getBasicTimeStep())
 
-        # Dispositivos
+        # Enable sensors
         self.lidar = self.robot.getDevice("Sick LMS 291")
         self.lidar.enable(self.timestep)
         self.camera = self.robot.getDevice("camera")
         self.camera.enable(self.timestep)
 
-        # Referência do Robô e Posição Inicial Automática
+        # Get vehicle node and initial pose fields
         self.vehicle_node = self.robot.getSelf()
         self.translation_field = self.vehicle_node.getField("translation")
         self.rotation_field = self.vehicle_node.getField("rotation")
-        
-        # SALVA A POSIÇÃO QUE VOCÊ DEFINIU NO WEBOTS
+
+        # Store initial position and rotation for resets
         self.initial_translation = self.translation_field.getSFVec3f()
         self.initial_rotation = self.rotation_field.getSFRotation()
 
-        # --- DEFINIÇÃO DOS ESPAÇOS (O que estava faltando!) ---
+        # Define action space: steering and throttle/brake
         self.action_space = spaces.Box(
-            low=np.array([-0.5, -1.0], dtype=np.float32), 
-            high=np.array([0.5, 1.0], dtype=np.float32), 
+            low=np.array([-0.5, -1.0], dtype=np.float32),  # min steering, min throttle (full brake)
+            high=np.array([0.5, 1.0], dtype=np.float32),   # max steering, max throttle
             dtype=np.float32
         )
 
-        self.observation_space = spaces.Dict({
-            "lidar": spaces.Box(low=0, high=10, shape=(72,), dtype=np.float32),
-            "camera": spaces.Box(low=0, high=255, shape=(64, 64, 3), dtype=np.uint8)
-        })
-        # -------------------------------------------------------
+        # Get sensor dimensions dynamically
+        camera_height = self.camera.getHeight()
+        camera_width = self.camera.getWidth()
+        lidar_width = self.lidar.getHorizontalResolution()
 
-        # Motores - Usando nomes universais do BMW X5
+        # Define observation space with actual sensor dimensions
+        self.observation_space = spaces.Dict({
+            "lidar": spaces.Box(low=0.0, high=100.0, shape=(lidar_width,), dtype=np.float32),
+            "camera": spaces.Box(low=0, high=255, shape=(camera_height, camera_width, 3), dtype=np.uint8)
+        })
+
+        # Get steering actuators
         self.left_steering = self.robot.getDevice("left_steer")
         self.right_steering = self.robot.getDevice("right_steer")
-        
+
+        # Initialize wheel actuators (only front wheels for this setup)
         self.wheels = []
-        possible_wheels = ["left_front_wheel", "right_front_wheel", "left_rear_wheel", "right_rear_wheel"]
-        for name in possible_wheels:
+        wheel_names = ["left_front_wheel", "right_front_wheel"]
+
+        for name in wheel_names:
             wheel = self.robot.getDevice(name)
-            if wheel:
-                self.wheels.append(wheel)
-                wheel.setPosition(float('inf'))
-                wheel.setVelocity(0.0)
+            wheel.setPosition(float("inf"))  # Set to velocity control mode
+            wheel.setVelocity(0.0)  # Initialize velocity to 0
+            self.wheels.append(wheel)
 
     def reset(self, seed=None, options=None):
+        """Reset the environment to initial state and return initial observations."""
         super().reset(seed=seed)
-        
-        # RETORNA AO LUGAR SALVO NO INIT
+
+        # Reset vehicle position and rotation to initial values
         self.translation_field.setSFVec3f(self.initial_translation)
         self.rotation_field.setSFRotation(self.initial_rotation)
-        
+
+        # Reset physics to stop any residual motion
         self.vehicle_node.resetPhysics()
-        self.robot.step(self.timestep)
-        
-        obs = {
-            "lidar": np.nan_to_num(np.array(self.lidar.getRangeImage()), posinf=10.0),
-            "camera": self.get_camera_image()
-        }
+        self.robot.step(self.timestep)  # Advance one timestep to apply reset
+
+        # Get initial observations
+        obs = self._get_observations()
         return obs, {}
 
     def get_camera_image(self):
-        # Pega a imagem crua do Webots
+        """Process raw Webots camera data into an RGB numpy array."""
         image_data = self.camera.getImage()
-        # Converte para array numpy (Altura, Largura, Canais)
-        img = np.frombuffer(image_data, np.uint8).reshape((self.camera.getHeight(), self.camera.getWidth(), 4))
-        # Converte de BGRA para RGB (remove o canal Alpha e inverte B/R)
+        # Convert raw bytes to numpy array with BGRA format
+        img = np.frombuffer(image_data, np.uint8).reshape(
+            (self.camera.getHeight(), self.camera.getWidth(), 4)
+        )
+        # Convert BGRA to RGB by rearranging channels and removing alpha
         img_rgb = img[:, :, [2, 1, 0]]
         return img_rgb
 
+    def _get_observations(self):
+        """Collect and clean sensor data for the RL agent."""
+        # Get LiDAR range data and handle infinite values
+        lidar_values = np.array(self.lidar.getRangeImage(), dtype=np.float32)
+        lidar_values = np.nan_to_num(lidar_values, posinf=100.0)  # Replace inf with 100.0
 
-    def step(self, action):
+        return {
+            "lidar": lidar_values,
+            "camera": self.get_camera_image()
+        }
+
+    def _apply_action(self, action):
+        """Apply steering and throttle values to the vehicle actuators."""
         steer_angle = float(action[0])
-        # action[1] varia de -1 a 1. Se for negativo, o carro dá ré.
-        velocity = float(action[1]) * 20.0 
+        velocity = float(action[1]) * 50.0  # Scale throttle to target velocity
 
-        # Aplica direção
-        if self.left_steering and self.right_steering:
-            self.left_steering.setPosition(steer_angle)
-            self.right_steering.setPosition(steer_angle)
+        # Set steering angle for both left and right steering
+        self.left_steering.setPosition(steer_angle)
+        self.right_steering.setPosition(steer_angle)
 
-        # Aplica velocidade apenas nas rodas encontradas
+        # Set velocity for all wheels
         for wheel in self.wheels:
             wheel.setVelocity(velocity)
 
-        self.robot.step(self.timestep)
+    def _compute_reward(self, obs, action):
+        """Compute the dense shaped reward signal based on lane following objectives."""
+        lidar = obs["lidar"]
+        throttle = action[1]
 
-        # (O restante do seu código de capturar observações e reward continua igual...)
-        lidar_values = np.array(self.lidar.getRangeImage(), dtype=np.float32)
-        obs = {
-            "lidar": np.nan_to_num(lidar_values, posinf=10.0),
-            "camera": self.get_camera_image()
-        }
-        
-        # Critério de parada (Done) se bater
+        # Forward speed reward: encourage moving forward
+        reward = max(0.0, float(throttle)) * 0.5
+
+        # Lateral deviation penalty: keep car centered using LiDAR symmetry
+        # Compare left and right side distances
+        side_diff = abs(np.mean(lidar[:10]) - np.mean(lidar[-10:]))
+        reward -= side_diff * 0.3
+
+        # Time penalty: discourage idling/staying still
+        reward -= 0.01
+
+        # Collision check: large negative reward for crashes
         done = False
-        if np.min(lidar_values) < 0.5:
+        if np.min(lidar) < 0.45:  # Collision threshold
+            reward = -20.0
             done = True
-            
-        return obs, 0.0, done, False, {}
 
-# Bloco para testar se a classe funciona
+        return reward, done
+
+    def step(self, action):
+        """Execute one environment step with the given action."""
+        # Apply the action to the vehicle
+        self._apply_action(action)
+
+        # Advance the simulation by one timestep
+        if self.robot.step(self.timestep) == -1:
+            # Simulation ended
+            return {}, 0.0, True, False, {}
+
+        # Get new observations
+        obs = self._get_observations()
+
+        # Compute reward and check for termination
+        reward, done = self._compute_reward(obs, action)
+
+        return obs, float(reward), done, False, {}
+
+# Script entry point for environment testing
 if __name__ == "__main__":
+    # Create and test the environment
     env = WebotsVehicleEnv()
-    print("Ambiente Gymnasium criado com sucesso!")
+    print("Gymnasium environment created successfully!")
     obs, _ = env.reset()
-    print(f"Formato do LiDAR: {obs['lidar'].shape}") # Deve imprimir (72,)
-    print(f"Formato da Câmera: {obs['camera'].shape}") # Deve imprimir (64, 64, 3)
+    print(f"LiDAR shape: {obs['lidar'].shape}")  # Should match lidar resolution
+    print(f"Camera shape: {obs['camera'].shape}")  # Should match camera dimensions
