@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(WEBOTS_HOME, "lib", "controller", "python"))
 ctypes.CDLL(os.path.join(WEBOTS_HOME, "lib", "controller", "Controller.dll"))
 
 from stable_baselines3 import PPO
-from main_controller import WebotsVehicleEnv
+from env.webots_env import WebotsVehicleEnv
 import numpy as np
 import json
 
