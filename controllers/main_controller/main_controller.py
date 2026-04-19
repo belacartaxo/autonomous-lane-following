@@ -44,11 +44,24 @@ class WebotsVehicleEnv(gym.Env):
         self.initial_rotation = self.rotation_field.getSFRotation()
 
         # Define action space: steering and throttle/brake
-        self.action_space = spaces.Box(
-            low=np.array([-0.5, -1.0], dtype=np.float32),  # min steering, min throttle (full brake)
-            high=np.array([0.5, 1.0], dtype=np.float32),   # max steering, max throttle
+        # Normalized action space exposed to the RL agent
+        # The agent always outputs values in [-1, 1] for both dimensions:
+        #   action[0] → steering
+        #   action[1] → throttle/brake
+        # This normalization improves training stability (especially for PPO)
+        self.action_space = spaces.Box( # TODO - PERGUNTAR PRO PROF SE ERA ESSA A NORMALIZAÇÃO QUE ELE TINHA COMENTADO
+            low=-1.0,  # min steering, min throttle (full brake)
+            high=1.0,   # max steering, max throttle
+            shape=(2,),
             dtype=np.float32
         )
+
+        # Real (physical) actuator limits used by the vehicle in Webots
+        # These define how normalized actions are mapped to actual control values
+        #   steering ∈ [-0.5, 0.5] radians
+        #   throttle/brake ∈ [-1.0, 1.0]
+        self.action_low = np.array([-0.5, -1.0], dtype=np.float32)
+        self.action_high = np.array([0.5, 1.0], dtype=np.float32)
 
         # Get sensor dimensions dynamically
         camera_height = self.camera.getHeight()
@@ -74,6 +87,11 @@ class WebotsVehicleEnv(gym.Env):
             wheel.setPosition(float("inf"))  # Set to velocity control mode
             wheel.setVelocity(0.0)  # Initialize velocity to 0
             self.wheels.append(wheel)
+
+    def _denormalize_action(self, action):
+        """Convert normalized action in [-1, 1] to real actuator ranges"""
+        action = np.clip(action, -1.0, 1.0) # Clip to ensure action stays within valid normalized bounds
+        return self.action_low + (action + 1.0) * 0.5 * (self.action_high - self.action_low)  # Scale to the real range [action_low, action_high]
 
     def reset(self, seed=None, options=None):
         """Reset the environment to initial state and return initial observations."""
@@ -152,8 +170,11 @@ class WebotsVehicleEnv(gym.Env):
 
     def step(self, action):
         """Execute one environment step with the given action."""
+        # Convert normalized agent action to real control commands
+        real_action = self._denormalize_action(action)
+
         # Apply the action to the vehicle
-        self._apply_action(action)
+        self._apply_action(real_action)
 
         # Advance the simulation by one timestep
         if self.robot.step(self.timestep) == -1:
@@ -164,7 +185,7 @@ class WebotsVehicleEnv(gym.Env):
         obs = self._get_observations()
 
         # Compute reward and check for termination
-        reward, done = self._compute_reward(obs, action)
+        reward, done = self._compute_reward(obs, real_action)
 
         return obs, float(reward), done, False, {}
 
