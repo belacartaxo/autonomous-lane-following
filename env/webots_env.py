@@ -88,6 +88,13 @@ class WebotsVehicleEnv(gym.Env):
             wheel.setVelocity(0.0)  # Initialize velocity to 0
             self.wheels.append(wheel)
 
+        # Parameters and state variables used to detect when the vehicle is stuck (not progressing despite movement commands)
+        self.stuck_step_count = 0
+        self.stuck_step_limit = 500
+        self.stuck_distance_threshold = 0.001
+
+        self.previous_position = np.array(self.translation_field.getSFVec3f(), dtype=np.float32)
+
     def _denormalize_action(self, action):
         """Convert normalized action in [-1, 1] to real actuator ranges"""
         action = np.clip(action, -1.0, 1.0) # Clip to ensure action stays within valid normalized bounds
@@ -104,6 +111,13 @@ class WebotsVehicleEnv(gym.Env):
         # Reset physics to stop any residual motion
         self.vehicle_node.resetPhysics()
         self.robot.step(self.timestep)  # Advance one timestep to apply reset
+
+        # Reset all variables related to stuck detection and ensure the vehicle starts from a clean state
+        self.stuck_step_count = 0
+        self.previous_position = np.array(self.translation_field.getSFVec3f(), dtype=np.float32)
+
+        for wheel in self.wheels:
+            wheel.setVelocity(0.0)
 
         # Get initial observations
         obs = self._get_observations()
@@ -164,13 +178,36 @@ class WebotsVehicleEnv(gym.Env):
         # Time penalty: discourage idling/staying still
         reward -= 0.01
 
-        # Collision check: large negative reward for crashes
         done = False
+        # End episode if vehicle is stuck for too long
+        if self.stuck_step_count >= self.stuck_step_limit:
+            reward -= 10
+            done = True
+
+        # Collision check: large negative reward for crashes
         if np.min(lidar) < 0.45:  # Collision threshold
             reward = -20.0
             done = True
 
         return reward, done
+    
+    def _check_if_is_stuck(self, action):
+        """Check whether the vehicle is stuck (trying to move but not progressing)."""
+        # Get current vehicle position
+        current_position = np.array(self.translation_field.getSFVec3f(), dtype=np.float32)
+
+        # Compute movement since last step (Euclidean distance)
+        movement = np.linalg.norm(current_position - self.previous_position)
+
+        # If agent is trying to move forward but displacement is too small -> consider "stuck"
+        if action[1] != 0 and movement < self.stuck_distance_threshold:
+            self.stuck_step_count += 1
+        else:
+            self.stuck_step_count = 0
+
+        # Update previous position for next step comparison
+        self.previous_position = current_position
+
 
     def step(self, action):
         """Execute one environment step with the given action."""
@@ -187,6 +224,9 @@ class WebotsVehicleEnv(gym.Env):
 
         # Get new observations
         obs = self._get_observations()
+
+        # Update stuck counter
+        self._check_if_is_stuck(real_action)
 
         # Compute reward and check for termination
         reward, done = self._compute_reward(obs, real_action)
