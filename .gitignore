@@ -3,3 +3,4 @@ __pycache__/
 worlds/*.jpg
 worlds/*.wbproj
 logs
+models
