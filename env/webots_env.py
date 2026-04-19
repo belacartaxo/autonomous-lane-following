@@ -152,6 +152,10 @@ class WebotsVehicleEnv(gym.Env):
         # Forward speed reward: encourage moving forward
         reward = max(0.0, float(throttle)) * 0.5
 
+        # Penalize reverse movement (discourage going backwards)
+        if throttle < 0: 
+            reward += throttle * 0.2 
+
         # Lateral deviation penalty: keep car centered using LiDAR symmetry
         # Compare left and right side distances
         side_diff = abs(np.mean(lidar[:10]) - np.mean(lidar[-10:]))
