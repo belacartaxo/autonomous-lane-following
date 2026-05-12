@@ -12,7 +12,6 @@ import json
 MODEL_PATH = "./models/dqn_noise/dqn_noise_final"
 N_EPISODES = 10  # depois usa 100
 
-# 🔥 Aqui aplicas noise
 base_env = WebotsVehicleEnv()
 env = LiDARNoiseWrapper(base_env, noise_std=0.1, dropout_prob=0.1)
 
@@ -49,14 +48,12 @@ for ep in range(N_EPISODES):
 
     print(f"Ep {ep:2d} | Reward: {total_reward:7.2f} | Steps: {steps} | Collisions: {collisions} | Success: {success}")
 
-# 📊 Resumo
 print("\n=== Validation Summary (DQN Noise) ===")
 print(f"Success rate:   {np.mean([r['success'] for r in results])*100:.1f}%")
 print(f"Avg reward:     {np.mean([r['total_reward'] for r in results]):.2f}")
 print(f"Avg steps:      {np.mean([r['steps'] for r in results]):.1f}")
 print(f"Avg collisions: {np.mean([r['collisions'] for r in results]):.2f}")
 
-# 💾 Guardar resultados
 os.makedirs("./results", exist_ok=True)
 
 with open("./results/c2_noise_dqn.json", "w") as f:
