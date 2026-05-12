@@ -25,7 +25,7 @@ for ep in range(N_EPISODES):
     steps = 0
     collisions = 0
 
-    while not done and steps < 1000:
+    while not done and steps < 28000:
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, _, info = env.step(action)
 

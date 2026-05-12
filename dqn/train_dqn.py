@@ -18,11 +18,13 @@ if webots_python_path not in sys.path:
 ctypes.CDLL(webots_controller_dll)
 
 TOTAL_TIMESTEPS = 800_000
+
 LOG_DIR = "./logs/dqn_baseline/"
 SAVE_DIR = "./models/dqn_baseline/"
 BEST_MODEL_DIR = "./models/dqn_baseline/dqn_best/"
 
-FINAL_MODEL_PATH = os.path.join(SAVE_DIR,"dqn_baseline_final")
+FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "dqn_baseline_final")
+REPLAY_BUFFER_PATH = os.path.join(SAVE_DIR, "dqn_replay_buffer")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -33,28 +35,53 @@ env = DiscreteActionWrapper(base_env)
 
 check_env(env, warn=True)
 
+model_zip_path = FINAL_MODEL_PATH + ".zip"
 
-model = DQN(
-    policy="MultiInputPolicy",
-    env=env,
-    learning_rate=1e-4,
-    buffer_size=100_000,
-    learning_starts=5_000,
-    batch_size=64,
-    gamma=0.99,
-    train_freq=4,
-    target_update_interval=1000,
-    exploration_fraction=0.2,
-    exploration_initial_eps=1.0,
-    exploration_final_eps=0.05,
-    verbose=1,
-    tensorboard_log=LOG_DIR,
-)
+if os.path.exists(model_zip_path):
+    print(f"A carregar modelo existente: {model_zip_path}")
+
+    model = DQN.load(
+        FINAL_MODEL_PATH,
+        env=env,
+        tensorboard_log=LOG_DIR,
+        verbose=1,
+    )
+
+    if os.path.exists(REPLAY_BUFFER_PATH + ".pkl"):
+        print("A carregar replay buffer existente...")
+        model.load_replay_buffer(REPLAY_BUFFER_PATH)
+    else:
+        print("Replay buffer não encontrado. O treino continua com os pesos existentes, mas com memória nova.")
+
+else:
+    print("Nenhum modelo existente encontrado. A criar novo modelo DQN...")
+
+    model = DQN(
+        policy="MultiInputPolicy",
+        env=env,
+        #learning_rate=1e-4,
+        #exploration_initial_eps=1.0,
+        #exploration_final_eps=0.05,
+        learning_rate=5e-5,
+        exploration_initial_eps=0.1,
+        exploration_final_eps=0.02,
+        buffer_size=100_000,
+        learning_starts=5_000,
+        batch_size=64,
+        gamma=0.99,
+        train_freq=4,
+        target_update_interval=1000,
+        exploration_fraction=0.2,
+        verbose=1,
+        tensorboard_log=LOG_DIR,
+    )
 
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
     name_prefix="dqn_lane",
+    save_replay_buffer=True,
+    save_vecnormalize=True,
 )
 
 eval_callback = EvalCallback(
@@ -72,7 +99,7 @@ callbacks = CallbackList([
     eval_callback,
 ])
 
-print("A iniciar treino DQN...")
+print("A iniciar/continuar treino DQN...")
 
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
@@ -82,7 +109,9 @@ model.learn(
 )
 
 model.save(FINAL_MODEL_PATH)
+model.save_replay_buffer(REPLAY_BUFFER_PATH)
 
 print("Treino concluído.")
 print(f"Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
+print(f"Replay buffer guardado em: {REPLAY_BUFFER_PATH}.pkl")
 print(f"Melhor modelo guardado em: {BEST_MODEL_DIR}best_model.zip")

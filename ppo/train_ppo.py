@@ -17,6 +17,7 @@ if webots_python_path not in sys.path:
 ctypes.CDLL(webots_controller_dll)
 
 TOTAL_TIMESTEPS = 800_000
+
 LOG_DIR = "./logs/ppo_baseline/"
 SAVE_DIR = "./models/ppo_baseline/"
 BEST_MODEL_DIR = "./models/ppo_baseline/ppo_best/"
@@ -28,22 +29,40 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 env = WebotsVehicleEnv()
+
 check_env(env, warn=True)
 
-model = PPO(
-    policy="MultiInputPolicy",
-    env=env,
-    learning_rate=3e-4,
-    n_steps=2048,
-    batch_size=64,
-    n_epochs=10,
-    gamma=0.99,
-    gae_lambda=0.95,
-    clip_range=0.2,
-    ent_coef=0.01,
-    verbose=1,
-    tensorboard_log=LOG_DIR,
-)
+model_zip_path = FINAL_MODEL_PATH + ".zip"
+
+if os.path.exists(model_zip_path):
+    print(f"A carregar modelo PPO existente: {model_zip_path}")
+
+    model = PPO.load(
+        FINAL_MODEL_PATH,
+        env=env,
+        tensorboard_log=LOG_DIR,
+        verbose=1,
+    )
+
+    print("Modelo carregado. O treino vai continuar a partir dos pesos existentes.")
+
+else:
+    print("Nenhum modelo PPO existente encontrado. A criar novo modelo...")
+
+    model = PPO(
+        policy="MultiInputPolicy",
+        env=env,
+        learning_rate=3e-4,
+        n_steps=2048,
+        batch_size=64,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        ent_coef=0.01,
+        verbose=1,
+        tensorboard_log=LOG_DIR,
+    )
 
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
@@ -66,7 +85,7 @@ callbacks = CallbackList([
     eval_callback,
 ])
 
-print("A iniciar treino PPO...")
+print("A iniciar/continuar treino PPO...")
 
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
