@@ -1,0 +1,72 @@
+[
+  {
+    "episode": 0,
+    "total_reward": 5829.99,
+    "steps": 1476,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 1,
+    "total_reward": 5498.5,
+    "steps": 1478,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 2,
+    "total_reward": 5773.08,
+    "steps": 1475,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 3,
+    "total_reward": 5988.97,
+    "steps": 1476,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 4,
+    "total_reward": 5505.39,
+    "steps": 1478,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 5,
+    "total_reward": 5786.97,
+    "steps": 1476,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 6,
+    "total_reward": 5531.07,
+    "steps": 1478,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 7,
+    "total_reward": 5427.61,
+    "steps": 1479,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 8,
+    "total_reward": 5568.02,
+    "steps": 1478,
+    "collisions": 1,
+    "success": false
+  },
+  {
+    "episode": 9,
+    "total_reward": 5525.2,
+    "steps": 1477,
+    "collisions": 1,
+    "success": false
+  }
+]

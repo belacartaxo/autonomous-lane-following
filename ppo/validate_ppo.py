@@ -12,7 +12,7 @@ from env.webots_env import WebotsVehicleEnv
 import numpy as np
 import json
 
-MODEL_PATH = "./models/ppo_baseline/ppo_baseline_final"
+MODEL_PATH = "models/ppo_baseline/ppo_baseline_continued.zip"
 N_EPISODES = 10  # usa 100 para avaliação final
 
 env = WebotsVehicleEnv()
@@ -27,7 +27,7 @@ for ep in range(N_EPISODES):
     steps = 0
     collisions = 0
 
-    while not done and steps < 1000:
+    while not done and steps < 5000:
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, _, info = env.step(action)
         total_reward += reward

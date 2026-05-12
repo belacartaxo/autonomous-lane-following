@@ -1,24 +1,38 @@
-import sys, os
-
-WEBOTS_HOME = os.environ.get("WEBOTS_HOME", "")
-sys.path.insert(0, os.path.join(WEBOTS_HOME, "Contents", "lib", "controller", "python"))
-
 from stable_baselines3 import DQN
 from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
 from env.webots_env import WebotsVehicleEnv
 from env.discrete_action_wrapper import DiscreteActionWrapper
+import sys
+import os
+import ctypes
 
-TOTAL_TIMESTEPS = 200_000
-LOG_DIR  = "./logs/dqn_baseline/"
+WEBOTS_HOME = os.environ.get("WEBOTS_HOME", r"C:\Program Files\Webots")
+
+webots_python_path = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
+webots_controller_dll = os.path.join(WEBOTS_HOME, "lib", "controller", "Controller.dll")
+
+if webots_python_path not in sys.path:
+    sys.path.append(webots_python_path)
+
+ctypes.CDLL(webots_controller_dll)
+
+TOTAL_TIMESTEPS = 800_000
+LOG_DIR = "./logs/dqn_baseline/"
 SAVE_DIR = "./models/dqn_baseline/"
+BEST_MODEL_DIR = "./models/dqn_baseline/dqn_best/"
 
-os.makedirs(LOG_DIR,  exist_ok=True)
+FINAL_MODEL_PATH = os.path.join(SAVE_DIR,"dqn_baseline_final")
+
+os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
+os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 base_env = WebotsVehicleEnv()
 env = DiscreteActionWrapper(base_env)
+
 check_env(env, warn=True)
+
 
 model = DQN(
     policy="MultiInputPolicy",
@@ -30,22 +44,45 @@ model = DQN(
     gamma=0.99,
     train_freq=4,
     target_update_interval=1000,
+    exploration_fraction=0.2,
+    exploration_initial_eps=1.0,
+    exploration_final_eps=0.05,
     verbose=1,
     tensorboard_log=LOG_DIR,
 )
 
-checkpoint_cb = CheckpointCallback(
+checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
     name_prefix="dqn_lane",
 )
 
-print("A iniciar treino DQN baseline...")
-model.learn(
-    total_timesteps=TOTAL_TIMESTEPS,
-    callback=checkpoint_cb,
-    progress_bar=True,
+eval_callback = EvalCallback(
+    env,
+    best_model_save_path=BEST_MODEL_DIR,
+    log_path=os.path.join(LOG_DIR, "eval"),
+    eval_freq=10_000,
+    n_eval_episodes=3,
+    deterministic=True,
+    render=False,
 )
 
-model.save(os.path.join(SAVE_DIR, "dqn_baseline_final"))
-print("Treino DQN concluído.")
+callbacks = CallbackList([
+    checkpoint_callback,
+    eval_callback,
+])
+
+print("A iniciar treino DQN...")
+
+model.learn(
+    total_timesteps=TOTAL_TIMESTEPS,
+    callback=callbacks,
+    progress_bar=True,
+    reset_num_timesteps=False,
+)
+
+model.save(FINAL_MODEL_PATH)
+
+print("Treino concluído.")
+print(f"Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
+print(f"Melhor modelo guardado em: {BEST_MODEL_DIR}best_model.zip")

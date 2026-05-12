@@ -96,7 +96,22 @@ class WebotsVehicleEnv(gym.Env):
 
         self.current_step = 0
         self.max_episode_steps = 2000
+        
+        self.viewpoint_node = self.robot.getFromDef("VIEWPOINT")
 
+        if self.viewpoint_node is not None:
+            self.viewpoint_position_field = self.viewpoint_node.getField("position")
+            self.viewpoint_orientation_field = self.viewpoint_node.getField("orientation")
+
+            self.initial_viewpoint_position = self.viewpoint_position_field.getSFVec3f()
+            self.initial_viewpoint_orientation = self.viewpoint_orientation_field.getSFRotation()
+        else:
+            self.viewpoint_node = None
+            self.viewpoint_position_field = None
+            self.viewpoint_orientation_field = None
+            self.initial_viewpoint_position = None
+            self.initial_viewpoint_orientation = None
+    
     def _denormalize_action(self, action):
         """Convert normalized action in [-1, 1] to real actuator ranges."""
         action = np.asarray(action, dtype=np.float32)
@@ -113,6 +128,10 @@ class WebotsVehicleEnv(gym.Env):
         self.translation_field.setSFVec3f(self.initial_translation)
         self.rotation_field.setSFRotation(self.initial_rotation)
 
+        if self.viewpoint_node is not None:
+            self.viewpoint_position_field.setSFVec3f(self.initial_viewpoint_position)
+            self.viewpoint_orientation_field.setSFRotation(self.initial_viewpoint_orientation)
+            
         self.vehicle_node.resetPhysics()
         self.robot.step(self.timestep)
 
