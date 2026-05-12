@@ -5,9 +5,8 @@ class CriticalObstacleManager:
     """
     Manager for critical dynamic obstacle scenarios.
 
-    The pedestrian starts from its current position in the Webots world.
-    When the vehicle enters a 2D risk radius around the pedestrian, the pedestrian
-    walks forward for a fixed distance.
+    Supports pedestrians and vehicles that start from their current position
+    in the Webots world and move when the ego vehicle enters a 2D trigger radius.
     """
 
     def __init__(self, supervisor, vehicle_translation_field):
@@ -17,13 +16,24 @@ class CriticalObstacleManager:
         self.scenarios = [
             {
                 "def_name": "PEDESTRIAN_1",
+                "label": "Pedestre",
                 "trigger_distance": 25.0,
-                "walk_direction": [1.0, 0.0, 0.0],
-                "walk_distance": 24.0,
+                "move_direction": [0.0, 1.0, 0.0],
+                "move_distance": 20.0,
                 "speed": 0.08,
                 "active": False,
                 "completed": False,
-            }
+            },
+            {
+                "def_name": "VEHICLE_1",
+                "label": "Automóvel",
+                "trigger_distance": 30.0,
+                "move_direction": [1.0, 0.0, 0.0],
+                "move_distance": 30.0,
+                "speed": 0.15,
+                "active": False,
+                "completed": False,
+            },
         ]
 
         self.obstacles = []
@@ -43,25 +53,25 @@ class CriticalObstacleManager:
                 dtype=np.float32
             )
 
-            walk_direction = np.array(
-                scenario["walk_direction"],
+            move_direction = np.array(
+                scenario["move_direction"],
                 dtype=np.float32
             )
-            walk_direction = walk_direction / (np.linalg.norm(walk_direction) + 1e-8)
+            move_direction = move_direction / (np.linalg.norm(move_direction) + 1e-8)
 
             obstacle = {
                 "node": node,
                 "translation_field": translation_field,
                 "start": current_position.copy(),
-                "end": current_position + walk_direction * scenario["walk_distance"],
+                "end": current_position + move_direction * scenario["move_distance"],
                 "trigger_position": current_position.copy(),
-                "walk_direction": walk_direction,
+                "move_direction": move_direction,
                 **scenario
             }
 
             self.obstacles.append(obstacle)
 
-            print(f"Obstáculo carregado: {scenario['def_name']}")
+            print(f"Obstáculo carregado: {scenario['label']} ({scenario['def_name']})")
             print(f"Posição inicial: {obstacle['start']}")
             print(f"Posição final: {obstacle['end']}")
 
@@ -73,7 +83,7 @@ class CriticalObstacleManager:
             obstacle["completed"] = False
 
     def step(self):
-        vehicle_position = np.array(
+        ego_position = np.array(
             self.vehicle_translation_field.getSFVec3f(),
             dtype=np.float32
         )
@@ -82,15 +92,15 @@ class CriticalObstacleManager:
             if obstacle["completed"]:
                 continue
 
-            distance_to_pedestrian = np.linalg.norm(
-                vehicle_position[[0, 1]] - obstacle["trigger_position"][[0, 1]]
+            distance_to_obstacle = np.linalg.norm(
+                ego_position[[0, 1]] - obstacle["trigger_position"][[0, 1]]
             )
 
             if (
                 not obstacle["active"]
-                and distance_to_pedestrian <= obstacle["trigger_distance"]
+                and distance_to_obstacle <= obstacle["trigger_distance"]
             ):
-                print("Pedestre ativado!")
+                print(f"{obstacle['label']} ativado!")
                 obstacle["active"] = True
 
             if obstacle["active"]:
@@ -112,7 +122,7 @@ class CriticalObstacleManager:
             obstacle["node"].resetPhysics()
             obstacle["active"] = False
             obstacle["completed"] = True
-            print("Pedestre terminou a travessia.")
+            print(f"{obstacle['label']} terminou o movimento.")
             return
 
         direction = direction / (distance + 1e-8)

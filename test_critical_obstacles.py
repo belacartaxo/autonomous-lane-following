@@ -23,7 +23,7 @@ def main():
     print("Ambiente crítico carregado com sucesso.")
     print("A testar trigger do pedestre...")
 
-    for step in range(2000):
+    for step in range(2000000):
         action = [0.0, 0.3]
 
         obs, reward, done, truncated, info = env.step(action)
