@@ -111,7 +111,32 @@ class WebotsVehicleEnv(gym.Env):
             self.viewpoint_orientation_field = None
             self.initial_viewpoint_position = None
             self.initial_viewpoint_orientation = None
-    
+        
+        self.resettable_def_names = (
+            [f"BARREL_{i}" for i in range(1, 9)] +
+            [f"CONE_{i}" for i in range(1, 20)] +
+            ["PEDESTRIAN_1", "VEHICLE_1"]
+        )
+
+        self.resettable_nodes = []
+
+        for def_name in self.resettable_def_names:
+            node = self.robot.getFromDef(def_name)
+
+            if node is None:
+                continue
+
+            translation_field = node.getField("translation")
+            rotation_field = node.getField("rotation")
+
+            self.resettable_nodes.append({
+                "node": node,
+                "translation_field": translation_field,
+                "rotation_field": rotation_field,
+                "initial_translation": translation_field.getSFVec3f(),
+                "initial_rotation": rotation_field.getSFRotation(),
+            })
+
     def _denormalize_action(self, action):
         """Convert normalized action in [-1, 1] to real actuator ranges."""
         action = np.asarray(action, dtype=np.float32)
@@ -127,17 +152,25 @@ class WebotsVehicleEnv(gym.Env):
 
         self.translation_field.setSFVec3f(self.initial_translation)
         self.rotation_field.setSFRotation(self.initial_rotation)
+        self.vehicle_node.resetPhysics()
+
+        for item in self.resettable_nodes:
+            item["translation_field"].setSFVec3f(item["initial_translation"])
+            item["rotation_field"].setSFRotation(item["initial_rotation"])
+            item["node"].resetPhysics()
 
         if self.viewpoint_node is not None:
             self.viewpoint_position_field.setSFVec3f(self.initial_viewpoint_position)
             self.viewpoint_orientation_field.setSFRotation(self.initial_viewpoint_orientation)
-            
-        self.vehicle_node.resetPhysics()
-        self.robot.step(self.timestep)
 
         for wheel in self.wheels:
             wheel.setVelocity(0.0)
 
+        self.robot.step(self.timestep)
+
+        for wheel in self.wheels:
+            wheel.setVelocity(0.0)
+            
         self.stuck_step_count = 0
         self.previous_position = np.array(
             self.translation_field.getSFVec3f(),
