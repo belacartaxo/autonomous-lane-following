@@ -9,8 +9,8 @@ from env.discrete_action_wrapper import DiscreteActionWrapper
 import numpy as np
 import json
 
-MODEL_PATH = "./models/dqn_baseline/dqn_baseline_final"
-N_EPISODES = 10  # usa 100 depois
+MODEL_PATH = "./models/old/dqn_baseline/dqn_baseline_final"
+N_EPISODES = 100  # usa 100 depois
 
 base_env = WebotsVehicleEnv()
 env = DiscreteActionWrapper(base_env)

@@ -12,8 +12,8 @@ from env.webots_env import WebotsVehicleEnv
 import numpy as np
 import json
 
-MODEL_PATH = "models/ppo_baseline/ppo_baseline_continued.zip"
-N_EPISODES = 10  # usa 100 para avaliação final
+MODEL_PATH = "models/old/ppo_baseline/ppo_baseline_final.zip"
+N_EPISODES = 100  # usa 100 para avaliação final
 
 env = WebotsVehicleEnv()
 model = PPO.load(MODEL_PATH, env=env)
