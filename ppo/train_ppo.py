@@ -1,54 +1,44 @@
-from stable_baselines3 import PPO
-from stable_baselines3.common.env_checker import check_env
-from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
-from env.webots_env import WebotsVehicleEnv
-import sys
 import os
-import ctypes
 
-WEBOTS_HOME = os.environ.get("WEBOTS_HOME", r"C:\Program Files\Webots")
+os.environ['WEBOTS_HOME'] = '/Applications/Webots.app'
 
-webots_python_path = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
-webots_controller_dll = os.path.join(WEBOTS_HOME, "lib", "controller", "Controller.dll")
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
+from gymnasium.wrappers import TimeLimit
+from env.webots_env import WebotsVehicleEnv
 
-if webots_python_path not in sys.path:
-    sys.path.append(webots_python_path)
-
-ctypes.CDLL(webots_controller_dll)
-
+# Configurações de Treino
 TOTAL_TIMESTEPS = 800_000
 
+# Diretórios
 LOG_DIR = "./logs/ppo_baseline/"
 SAVE_DIR = "./models/ppo_baseline/"
 BEST_MODEL_DIR = "./models/ppo_baseline/ppo_best/"
-
 FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_baseline_final")
 
+# Garantir que as pastas existem
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
+# Inicializar Ambiente com Limite de Tempo
 env = WebotsVehicleEnv()
-
-check_env(env, warn=True)
+env = TimeLimit(env, max_episode_steps=5000) # Limite de 5000 passos por episódio
 
 model_zip_path = FINAL_MODEL_PATH + ".zip"
 
+# Carregar modelo existente ou Criar novo
 if os.path.exists(model_zip_path):
     print(f"A carregar modelo PPO existente: {model_zip_path}")
-
     model = PPO.load(
         FINAL_MODEL_PATH,
         env=env,
         tensorboard_log=LOG_DIR,
         verbose=1,
     )
-
-    print("Modelo carregado. O treino vai continuar a partir dos pesos existentes.")
-
+    print("Modelo carregado. O treino continua a partir do estado anterior.")
 else:
-    print("Nenhum modelo PPO existente encontrado. A criar novo modelo...")
-
+    print("Nenhum modelo existente encontrado. A criar novo modelo PPO...")
     model = PPO(
         policy="MultiInputPolicy",
         env=env,
@@ -64,6 +54,7 @@ else:
         tensorboard_log=LOG_DIR,
     )
 
+# Callbacks para salvar progresso e o melhor modelo
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
@@ -80,22 +71,16 @@ eval_callback = EvalCallback(
     render=False,
 )
 
-callbacks = CallbackList([
-    checkpoint_callback,
-    eval_callback,
-])
-
+# Iniciar/Continuar Treino
 print("A iniciar/continuar treino PPO...")
-
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
-    callback=callbacks,
+    callback=CallbackList([checkpoint_callback, eval_callback]),
     progress_bar=True,
-    reset_num_timesteps=False,
+    reset_num_timesteps=False, # Mantém o histórico do otimizador para retreino
 )
 
+# Salvar modelo final
 model.save(FINAL_MODEL_PATH)
 
-print("Treino concluído.")
-print(f"Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
-print(f"Melhor modelo guardado em: {BEST_MODEL_DIR}best_model.zip")
+print(f"Treino concluído. Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
