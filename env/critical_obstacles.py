@@ -129,3 +129,7 @@ class CriticalObstacleManager:
         new_position = current_position + direction * obstacle["speed"]
 
         obstacle["translation_field"].setSFVec3f(new_position.tolist())
+
+    def is_any_obstacle_active(self):
+        """Return True if any critical obstacle is currently moving."""
+        return any(obstacle["active"] for obstacle in self.obstacles)

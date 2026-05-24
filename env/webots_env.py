@@ -137,6 +137,10 @@ class WebotsVehicleEnv(gym.Env):
                 "initial_rotation": rotation_field.getSFRotation(),
             })
 
+        self.is_avoiding_obstacle = False
+        self.last_line_side = None  # "left" or "right"
+        self.obstacle_was_near = False
+
     def _denormalize_action(self, action):
         """Convert normalized action in [-1, 1] to real actuator ranges."""
         action = np.asarray(action, dtype=np.float32)
@@ -165,6 +169,10 @@ class WebotsVehicleEnv(gym.Env):
 
         for wheel in self.wheels:
             wheel.setVelocity(0.0)
+
+        self.is_avoiding_obstacle = False
+        self.last_line_side = None  # "left" or "right"
+        self.obstacle_was_near = False
 
         self.robot.step(self.timestep)
 
@@ -272,16 +280,39 @@ class WebotsVehicleEnv(gym.Env):
         reward = 0.0
         done = False
 
-        # LiDAR obstacle detection
         lidar_size = len(lidar)
         center = lidar_size // 2
         front_window = lidar[max(0, center - 10):min(lidar_size, center + 10)]
 
         front_distance = np.min(front_window)
-        obstacle_near = front_distance < 4.0
-        obstacle_very_close = front_distance < 1.2
+        obstacle_near = front_distance < 5.0
+        obstacle_very_close = front_distance < 2.0
 
         forward_reward = max(0.0, throttle)
+
+        current_line_side = None
+
+        if line_visible:
+            if lane_error < -0.15:
+                current_line_side = "left"
+            elif lane_error > 0.15:
+                current_line_side = "right"
+            else:
+                current_line_side = "center"
+
+        if obstacle_near:
+            self.is_avoiding_obstacle = True
+
+            if line_visible and current_line_side in ["left", "right"]:
+                self.last_line_side = current_line_side
+
+        obstacle_just_finished = (
+            self.is_avoiding_obstacle
+            and self.obstacle_was_near
+            and not obstacle_near
+        )
+
+        self.obstacle_was_near = obstacle_near
 
         if line_visible:
             self.lost_line_steps = 0
@@ -289,23 +320,16 @@ class WebotsVehicleEnv(gym.Env):
             center_reward = 1.0 - abs(lane_error)
 
             if obstacle_near:
-                # When there is an obstacle, allow the car to leave the line temporarily
                 reward += forward_reward * 0.8
-
-                # Reward steering action because the car needs to avoid the obstacle
                 reward += min(abs(steering), 0.5) * 1.0
-
-                # Reduce lane penalty while avoiding obstacle
                 reward += center_reward * 0.5
                 reward -= abs(lane_error) * 0.3
 
-                # Stronger pressure to react if obstacle is very close
                 if obstacle_very_close:
                     reward += min(abs(steering), 0.5) * 2.0
                     reward -= 2.0
 
             else:
-                # Normal lane-following behavior
                 reward += center_reward * 3.0
                 reward += forward_reward * 0.5
 
@@ -315,6 +339,15 @@ class WebotsVehicleEnv(gym.Env):
                 if abs(lane_error) < 0.15:
                     reward += 2.0
 
+                if obstacle_just_finished and self.last_line_side is not None:
+                    if current_line_side == self.last_line_side:
+                        reward += 8.0
+                    else:
+                        reward -= 8.0
+
+                    self.is_avoiding_obstacle = False
+                    self.last_line_side = None
+
             if yellow_ratio < 0.001:
                 reward -= 1.0
 
@@ -322,32 +355,28 @@ class WebotsVehicleEnv(gym.Env):
             self.lost_line_steps += 1
 
             if obstacle_near:
-                # If line is lost because of an obstacle, do not punish too harshly
                 reward -= 1.0
                 reward += forward_reward * 0.5
                 reward += min(abs(steering), 0.5) * 0.5
+
+                self.is_avoiding_obstacle = True
             else:
                 reward -= 5.0
 
-        # Penalize reverse movement
         if throttle < 0:
             reward += throttle * 0.2
 
-        # Small time penalty
         reward -= 0.01
 
-        # End episode if the car lost the lane for too long
         if self.lost_line_steps >= self.max_lost_line_steps:
             reward -= 100.0
             done = True
 
-        # End episode if the car is stuck
         if self.stuck_step_count >= self.stuck_step_limit:
             reward -= 100.0
             done = True
 
-        # Collision penalty
-        if np.min(lidar) < 0.45:
+        if np.min(lidar) < 1.1:
             reward -= 100.0
             done = True
 
@@ -367,7 +396,14 @@ class WebotsVehicleEnv(gym.Env):
 
         movement = np.linalg.norm(current_position - self.previous_position)
 
-        if abs(action[1]) > 0.05 and movement < self.stuck_distance_threshold:
+        dynamic_obstacle_active = (
+            hasattr(self, "critical_obstacles")
+            and self.critical_obstacles.is_any_obstacle_active()
+        )
+
+        if dynamic_obstacle_active:
+            self.stuck_step_count = 0
+        elif abs(action[1]) > 0.05 and movement < self.stuck_distance_threshold:
             self.stuck_step_count += 1
         else:
             self.stuck_step_count = 0
