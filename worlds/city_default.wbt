@@ -27,7 +27,6 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Cypress.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Sassafras.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/BigSassafras.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/PedestrianCrossing.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/CautionSign.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/CautionPanel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/OrderSign.proto"
@@ -117,9 +116,9 @@ WorldInfo {
     }
   ]
 }
-DEF VIEWPOINT Viewpoint {
-  orientation -0.17057717032169056 0.21076890641374016 0.9625382574496458 1.398282587091864
-  position -51.547837447811474 21.793323396585055 14.06743922551717
+Viewpoint {
+  orientation 0.4550661543172363 -0.6458524943732412 -0.6130165990467008 4.573595420521156
+  position -61.80500716985524 10.954167075150925 68.91686226563213
   near 1
   follow "vehicle"
   followSmoothness 0
@@ -274,7 +273,7 @@ CurvedRoadSegment {
   leftBarrier TRUE
   curvatureRadius 40.5
 }
-DEF CONE_19 RoadIntersection {
+RoadIntersection {
   translation 45 -45 0.02
   rotation 0 0 1 0.785398
   id "16"
@@ -328,6 +327,91 @@ StraightRoadSegment {
   rightBarrier TRUE
   leftBarrier TRUE
   length 30
+}
+Solid {
+  translation 45 -26 -0.06
+  rotation 0 0 1 -3.1415853071795863
+  children [
+    DEF ZEBRA_TRANS Pose {
+      translation 0 -0.1 0
+      rotation -0.5773496025226483 0.5773516025212714 -0.5773496025226483 -2.094399
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "../textures/crosswalk_white.png"
+              ]
+            }
+            roughness 0.9
+            metalness 0
+          }
+          geometry IndexedFaceSet {
+            coord Coordinate {
+              point [
+                -0.2 -9.999985307179587 -3.999999999973015
+                -0.2 10.000014692820413 -3.999999999973015
+                -0.2 -10.000014692820413 3.999999999973015
+                -0.2 9.999985307179587 3.999999999973015
+                0.2 -9.999985307179587 -3.999999999973015
+                0.2 10.000014692820413 -3.999999999973015
+                0.2 -10.000014692820413 3.999999999973015
+                0.2 9.999985307179587 3.999999999973015
+              ]
+            }
+            texCoord TextureCoordinate {
+              point [
+                0 0
+                1 0
+                0 1
+                1 1
+              ]
+            }
+            coordIndex [
+              1, 0, 2, 3, -1, 4, 5, 7, 6, -1
+            ]
+            texCoordIndex [
+              0, 1, 3, 2, -1, 0, 1, 3, 2, -1
+            ]
+          }
+          castShadows FALSE
+        }
+      ]
+    }
+  ]
+  name "pedestrian crossing(2)"
+  model "pedestrian crossing"
+  boundingObject Group {
+    children [
+      Pose {
+        translation 0 0 -0.1
+        children [
+          Box {
+            size 20 8 0.4
+          }
+        ]
+      }
+      DEF RAMP1_TRANS Pose {
+        translation 0 4 -0.2535
+        rotation 1 0 0 2.3562
+        children [
+          DEF RAMP_BOX Box {
+            size 20 0.5 0.5
+          }
+        ]
+      }
+      DEF RAMP2_TRANS Pose {
+        translation 0 -4 -0.2535
+        rotation 1 0 0 2.3562
+        children [
+          USE RAMP_BOX
+        ]
+      }
+    ]
+  }
+  recognitionColors [
+    0.96 0.82 0.05
+  ]
 }
 CurvedRoadSegment {
   translation 4.5 4.5 0.02
@@ -598,8 +682,18 @@ CurvedRoadSegment {
   curvatureRadius 40.5
 }
 BmwX5 {
-  translation -45 45.88 0.4
-  rotation 0 0 1 3.14159
+  hidden position_0_0 -1.3661322676139583e-07
+  hidden position2_0_0 50.56231179926495
+  hidden position_0_1 1.3653417368082212e-07
+  hidden position2_0_1 50.56231178514079
+  hidden position_0_2 50.43557977913339
+  hidden position_0_3 50.43557971216774
+  hidden rotation_1 6.830661338069074e-08 -0.9999999999998933 4.568574451694922e-07 0.2968293418282862
+  hidden rotation_2 6.826708684040387e-08 0.9999999999998934 -4.5659310051452864e-07 0.29682932770413256
+  hidden rotation_3 0 -0.9999999999999999 0 0.17009732169669864
+  hidden rotation_4 0 0.9999999999999999 0 0.1700972547310445
+  translation -44.7458 45.1493 0.785413
+  rotation 5.386982561946512e-12 -0.0022469610686119746 0.9999974755797917 3.14159
   controller "<extern>"
   supervisor TRUE
   sensorsSlotFront [
@@ -924,14 +1018,90 @@ BigSassafras {
   translation 121.921 33.1395 0
   name "tree(19)"
 }
-PedestrianCrossing {
-  translation 45 -26 -0.06
-  rotation 0 0 1 -3.1415853071795863
-}
-PedestrianCrossing {
+Solid {
   translation -61.4608 45.0693 -0.06
   rotation 0 0 1 -1.5707853071795865
+  children [
+    DEF ZEBRA_TRANS Pose {
+      translation 0 -0.1 0
+      rotation -0.5773496025226483 0.5773516025212714 -0.5773496025226483 -2.094399
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColorMap ImageTexture {
+              url [
+                "../textures/crosswalk_white.png"
+              ]
+            }
+            roughness 0.9
+            metalness 0
+          }
+          geometry IndexedFaceSet {
+            coord Coordinate {
+              point [
+                -0.2 -9.999985307179587 -3.999999999973015
+                -0.2 10.000014692820413 -3.999999999973015
+                -0.2 -10.000014692820413 3.999999999973015
+                -0.2 9.999985307179587 3.999999999973015
+                0.2 -9.999985307179587 -3.999999999973015
+                0.2 10.000014692820413 -3.999999999973015
+                0.2 -10.000014692820413 3.999999999973015
+                0.2 9.999985307179587 3.999999999973015
+              ]
+            }
+            texCoord TextureCoordinate {
+              point [
+                0 0
+                1 0
+                0 1
+                1 1
+              ]
+            }
+            coordIndex [
+              1, 0, 2, 3, -1, 4, 5, 7, 6, -1
+            ]
+            texCoordIndex [
+              0, 1, 3, 2, -1, 0, 1, 3, 2, -1
+            ]
+          }
+          castShadows FALSE
+        }
+      ]
+    }
+  ]
   name "pedestrian crossing(1)"
+  model "pedestrian crossing"
+  boundingObject Group {
+    children [
+      Pose {
+        translation 0 0 -0.1
+        children [
+          Box {
+            size 20 8 0.4
+          }
+        ]
+      }
+      DEF RAMP1_TRANS Pose {
+        translation 0 4 -0.2535
+        rotation 1 0 0 2.3562
+        children [
+          DEF RAMP_BOX Box {
+            size 20 0.5 0.5
+          }
+        ]
+      }
+      DEF RAMP2_TRANS Pose {
+        translation 0 -4 -0.2535
+        rotation 1 0 0 2.3562
+        children [
+          USE RAMP_BOX
+        ]
+      }
+    ]
+  }
+  recognitionColors [
+    0.96 0.82 0.05
+  ]
 }
 CautionSign {
   translation -91.9275 48.9391 0
@@ -1102,71 +1272,71 @@ SpeedLimitSign {
     }
   ]
 }
-DEF CONE_2 TrafficCone {
-  translation -50.81735518401327 33.906799978585845 -0.004076718671708446
-  rotation -0.0002731636640684121 0.9999998490520303 0.00047673633127212693 0.01369079276461902
+TrafficCone {
+  translation -50.81735518417747 33.906799978585504 -0.004076705348097953
+  rotation -0.00027315805812615506 0.9999998490543114 0.0004767347583578483 0.01369084590476361
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_1 TrafficCone {
-  translation -53.34475518401327 33.906799978585845 -0.004076718671708446
-  rotation -0.0002731636640684121 0.9999998490520303 0.00047673633127212693 0.01369079276461902
+TrafficCone {
+  translation -53.34475518417747 33.906799978585504 -0.004076705348097953
+  rotation -0.00027315805812615506 0.9999998490543114 0.0004767347583578483 0.01369084590476361
   name "traffic cone(1)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_3 TrafficCone {
-  translation -48.16815518401327 34.00949997858585 -0.004076718671708446
-  rotation -0.00027316366406841363 0.9999998490520303 0.0004767363312721155 0.01369079276461902
+TrafficCone {
+  translation -48.16815518417747 34.00949997858551 -0.004076705348097953
+  rotation -0.00027315805812599844 0.9999998490543113 0.0004767347583578397 0.013690845904763611
   name "traffic cone(2)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_5 TrafficCone {
-  translation -45.10425447619165 26.35434520634375 -0.00407671867170839
-  rotation -0.00021751185044710958 0.999970700861647 -0.007651804157265867 0.013691192031295821
+TrafficCone {
+  translation -45.10425447635584 26.354345206343417 -0.004076705348097925
+  rotation -0.00021750624472506567 0.9999707010922487 -0.007651774180540829 0.013691245169859999
   name "traffic cone(3)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_4 TrafficCone {
-  translation -45.56035447619164 33.908245206343764 -0.00407671867170839
-  rotation -0.00021751185044722364 0.9999707008616472 -0.007651804157259726 0.013691192031296043
+TrafficCone {
+  translation -45.56035447635583 33.90824520634343 -0.004076705348097925
+  rotation -0.00021750624472506352 0.9999707010922488 -0.0076517741805348025 0.013691245169859997
   name "traffic cone(4)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_6 TrafficCone {
-  translation -45.09525518401327 16.183199978585726 -0.004076718671708446
-  rotation -0.00027316366406794916 0.9999998490520301 0.00047673633120559714 0.01369079276461902
+TrafficCone {
+  translation -45.09525518417747 16.183199978585378 -0.004076705348097953
+  rotation -0.00027315805812516003 0.9999998490543114 0.00047673475829136224 0.013690845904763608
   name "traffic cone(5)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_7 TrafficCone {
-  translation -45.29575518401327 5.310339978585832 -0.004076718671708446
-  rotation -0.00027316366406807124 0.9999998490520302 0.00047673633120952 0.013690792764619018
+TrafficCone {
+  translation -45.295755184177466 5.310339978585486 -0.004076705348097953
+  rotation -0.00027315805812535096 0.9999998490543114 0.0004767347582952534 0.013690845904763604
   name "traffic cone(6)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_8 TrafficCone {
-  translation -44.78215518401327 -7.339150021414168 -0.004076718671708446
-  rotation -0.00027316366406807124 0.9999998490520302 0.00047673633120952 0.013690792764619018
+TrafficCone {
+  translation -44.78215518417747 -7.339150021414514 -0.004076705348097953
+  rotation -0.00027315805812535096 0.9999998490543114 0.0004767347582952534 0.013690845904763604
   name "traffic cone(7)"
   physics Physics {
     density -1
@@ -1174,98 +1344,98 @@ DEF CONE_8 TrafficCone {
   }
 }
 TrafficCone {
-  translation 33.97404481598673 -53.760800021414155 -0.004076718671708446
-  rotation -0.00027316366406841363 0.9999998490520303 0.0004767363312721155 0.01369079276461902
+  translation 33.97404481582253 -53.7608000214145 -0.004076705348097953
+  rotation -0.00027315805812599844 0.9999998490543113 0.0004767347583578397 0.013690845904763611
   name "traffic cone(8)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_18 TrafficCone {
-  translation 33.96964481598673 -51.435000021414155 -0.004076718671708446
-  rotation -0.0002731636640683195 0.9999998490520303 0.0004767363312721169 0.01369079276461902
+TrafficCone {
+  translation 33.969644815822534 -51.435000021414496 -0.004076705348097953
+  rotation -0.0002731580581259254 0.9999998490543113 0.00047673475835784015 0.013690845904763611
   name "traffic cone(9)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_17 TrafficCone {
-  translation 33.95354481598673 -48.95440002141415 -0.004076718671708446
-  rotation -0.00027316366406844253 0.9999998490520303 0.0004767363312721203 0.01369079276461902
+TrafficCone {
+  translation 33.95354481582253 -48.95440002141449 -0.004076705348097953
+  rotation -0.00027315805812614275 0.9999998490543113 0.00047673475835784726 0.013690845904763611
   name "traffic cone(10)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_16 TrafficCone {
-  translation 33.71714481598673 -45.72340002141415 -0.004076718671708446
-  rotation -0.00027316366406841363 0.9999998490520303 0.0004767363312721155 0.01369079276461902
+TrafficCone {
+  translation 33.71714481582253 -45.72340002141449 -0.004076705348097953
+  rotation -0.00027315805812599844 0.9999998490543113 0.0004767347583578397 0.013690845904763611
   name "traffic cone(11)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_10 TrafficCone {
-  translation -35.36085518401327 -30.23390002141427 -0.004076718671708446
-  rotation -0.000273163664067923 0.9999998490520303 0.0004767363312055513 0.013690792764619016
+TrafficCone {
+  translation -35.36085518417747 -30.23390002141462 -0.004076705348097953
+  rotation -0.000273158058125213 0.9999998490543114 0.00047673475829130576 0.013690845904763608
   name "traffic cone(12)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_9 TrafficCone {
-  translation -42.32475518401327 -18.608400021414273 -0.004076718671708446
-  rotation -0.00027316366406797394 0.9999998490520303 0.0004767363312055826 0.013690792764619016
+TrafficCone {
+  translation -42.32475518417747 -18.60840002141462 -0.004076705348097953
+  rotation -0.00027315805812523094 0.9999998490543114 0.00047673475829133807 0.013690845904763608
   name "traffic cone(13)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_11 TrafficCone {
-  translation -26.685755184013264 -38.237200021414154 -0.004076718671708446
-  rotation -0.0002731636640683677 0.9999998490520302 0.0004767363312747634 0.013690792764618867
+TrafficCone {
+  translation -26.685755184177463 -38.237200021414495 -0.004076705348097953
+  rotation -0.0002731580581261839 0.9999998490543113 0.0004767347583605744 0.01369084590476364
   name "traffic cone(14)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_12 TrafficCone {
-  translation -13.72645518401333 -43.78640002141415 -0.004076718671708446
-  rotation -0.0002731636640683006 0.9999998490520301 0.00047673633127105536 0.013690792764618945
+TrafficCone {
+  translation -13.726455184177539 -43.786400021414494 -0.004076705348097953
+  rotation -0.000273158058126054 0.9999998490543114 0.00047673475835685434 0.013690845904763618
   name "traffic cone(15)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_13 TrafficCone {
-  translation -1.3851451840133036 -44.86730002141415 -0.004076718671708446
-  rotation -0.0002731636640683901 0.9999998490520301 0.00047673633127826183 0.013690792764618915
+TrafficCone {
+  translation -1.3851451841775109 -44.86730002141449 -0.004076705348097953
+  rotation -0.0002731580581261877 0.9999998490543114 0.0004767347583640353 0.013690845904763603
   name "traffic cone(16)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_14 TrafficCone {
-  translation 11.217444815986669 -44.89550002141415 -0.004076718671708446
-  rotation -0.0002731636640683006 0.9999998490520301 0.00047673633127105536 0.013690792764618945
+TrafficCone {
+  translation 11.21744481582246 -44.89550002141449 -0.004076705348097953
+  rotation -0.000273158058126054 0.9999998490543114 0.00047673475835685434 0.013690845904763618
   name "traffic cone(17)"
   physics Physics {
     density -1
     mass 1
   }
 }
-DEF CONE_15 TrafficCone {
-  translation 22.153044815986735 -44.81520002141415 -0.004076718671708446
-  rotation -0.0002731636640684263 0.99999984905203 0.00047673633127475606 0.013690792764618865
+TrafficCone {
+  translation 22.153044815822536 -44.81520002141449 -0.004076705348097953
+  rotation -0.00027315805812630023 0.9999998490543113 0.00047673475836057 0.013690845904763636
   name "traffic cone(18)"
   physics Physics {
     density -1
@@ -1312,9 +1482,9 @@ HighwayPole {
     }
   ]
 }
-DEF BARREL_3 OilBarrel {
-  translation -110.31684 -66.875162 0.5998773750219886
-  rotation 1.1231710082298947e-19 -7.8187700765955e-20 1 3.14159
+OilBarrel {
+  translation -100.597 -80.2652 0.599878
+  rotation -2.767176572587184e-19 1.2682626428432965e-19 1 3.14159
   height 1.2
   radius 0.4
   physics Physics {
@@ -1324,9 +1494,9 @@ DEF BARREL_3 OilBarrel {
     }
   }
 }
-DEF BARREL_1 OilBarrel {
-  translation -107.04991 -33.037806 0.5998773750219886
-  rotation -4.496557610278035e-19 -1.3733120843495315e-19 1 3.14159
+OilBarrel {
+  translation -106.09 -33.0378 0.599878
+  rotation -5.694141725085653e-19 2.135671948499701e-19 1 3.14159
   name "oil barrel(1)"
   height 1.2
   radius 0.4
@@ -1337,9 +1507,9 @@ DEF BARREL_1 OilBarrel {
     }
   }
 }
-DEF BARREL_2 OilBarrel {
-  translation -103.169 -54.770003 0.5998773750219886
-  rotation -4.496557610278035e-19 -1.3733120843495315e-19 1 3.14159
+OilBarrel {
+  translation -104.269 -54.77 0.599878
+  rotation -5.694141725085653e-19 2.135671948499701e-19 1 3.14159
   name "oil barrel(2)"
   height 1.2
   radius 0.4
@@ -1350,9 +1520,9 @@ DEF BARREL_2 OilBarrel {
     }
   }
 }
-DEF BARREL_4 OilBarrel {
-  translation -45 -105.104 0.5998773750219886
-  rotation -5.265687038843862e-19 -9.413666451388792e-20 -0.9999999999999999 1.5707953071795862
+OilBarrel {
+  translation -45 -105.104 0.5998777206337114
+  rotation -8.191197549132088e-19 -2.3383829163536928e-19 -0.9999999999999999 1.5707953071795862
   name "oil barrel(3)"
   height 1.2
   radius 0.4
@@ -1363,9 +1533,9 @@ DEF BARREL_4 OilBarrel {
     }
   }
 }
-DEF BARREL_8 OilBarrel {
-  translation -21.3988 -45.2699 0.5998773750219886
-  rotation -1.1582833449521794e-18 -3.079418748924321e-20 -1 1.1781
+OilBarrel {
+  translation -21.3988 -45.2699 0.5998777206337115
+  rotation 7.574307702573618e-19 -6.648287545099775e-19 -1 1.1781
   name "oil barrel(4)"
   height 1.2
   radius 0.4
@@ -1376,9 +1546,9 @@ DEF BARREL_8 OilBarrel {
     }
   }
 }
-DEF BARREL_6 OilBarrel {
-  translation -22.9161 -45.3401 0.5998773750219886
-  rotation 7.812066655259468e-19 1.122709267353836e-19 1 1.9634953071795869
+OilBarrel {
+  translation -22.9161 -45.3401 0.5998777206337115
+  rotation -6.502265589639625e-19 6.537419205250583e-20 1 1.9634953071795869
   name "oil barrel(5)"
   height 1.2
   radius 0.4
@@ -1389,9 +1559,9 @@ DEF BARREL_6 OilBarrel {
     }
   }
 }
-DEF BARREL_7 OilBarrel {
-  translation -22.1326 -45.7229 0.5998773750219886
-  rotation 0.4380646831999565 0.6417255283879721 0.6295138438097287 1.8513845494834753e-18
+OilBarrel {
+  translation -22.1326 -45.7229 0.5998777206337115
+  rotation -0.1283000423377723 -0.27121029571260197 0.9539308542214204 3.631936330985454e-18
   name "oil barrel(6)"
   height 1.2
   radius 0.4
@@ -1402,9 +1572,9 @@ DEF BARREL_7 OilBarrel {
     }
   }
 }
-DEF BARREL_5 OilBarrel {
-  translation -48.6853 20.1904 0.5998773750219885
-  rotation -1.846849117738834e-19 -4.767595548855662e-19 1 3.01069
+OilBarrel {
+  translation -48.6853 20.1904 0.5998777206337114
+  rotation 5.087494722270203e-19 1.43939012274468e-19 1 3.01069
   name "oil barrel(7)"
   height 1.2
   radius 0.4
