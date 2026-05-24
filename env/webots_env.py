@@ -92,6 +92,8 @@ class WebotsVehicleEnv(gym.Env):
         )
 
         self.lost_line_steps = 0
+        self.cumulative_lane_deviation = 0.0
+        self.lane_deviation_count = 0
         self.max_lost_line_steps = 300
 
         self.current_step = 0
@@ -187,6 +189,8 @@ class WebotsVehicleEnv(gym.Env):
 
         self.lost_line_steps = 0
         self.current_step = 0
+        self.cumulative_lane_deviation = 0.0
+        self.lane_deviation_count = 0
 
         obs = self._get_observations()
         return obs, {}
@@ -318,6 +322,9 @@ class WebotsVehicleEnv(gym.Env):
             self.lost_line_steps = 0
 
             center_reward = 1.0 - abs(lane_error)
+            
+            self.cumulative_lane_deviation += abs(lane_error)
+            self.lane_deviation_count += 1
 
             if obstacle_near:
                 reward += forward_reward * 0.8
@@ -425,7 +432,13 @@ class WebotsVehicleEnv(gym.Env):
 
         reward, done = self._compute_reward(obs, real_action)
 
-        return obs, float(reward), done, False, {}
+        collision = bool(np.min(obs["lidar"]) < 1.1)
+        return obs, float(reward), done, False, {"collision": collision}
+    
+    def mean_lane_deviation(self):
+        if self.lane_deviation_count == 0:
+            return 1.0
+        return self.cumulative_lane_deviation / self.lane_deviation_count
 
 
 if __name__ == "__main__":
