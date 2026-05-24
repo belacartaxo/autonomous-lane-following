@@ -92,10 +92,10 @@ class WebotsVehicleEnv(gym.Env):
         )
 
         self.lost_line_steps = 0
-        self.max_lost_line_steps = 10
+        self.max_lost_line_steps = 300
 
         self.current_step = 0
-        self.max_episode_steps = 2800
+        self.max_episode_steps = 5000
         
         self.viewpoint_node = self.robot.getFromDef("VIEWPOINT")
 
