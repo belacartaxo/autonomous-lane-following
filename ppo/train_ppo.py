@@ -1,7 +1,26 @@
 import os
+import sys
+import platform
 
-os.environ['WEBOTS_HOME'] = '/Applications/Webots.app'
+if platform.system() == "Windows":
+    WEBOTS_HOME = r"C:\Program Files\Webots"
+elif platform.system() == "Darwin":  # macOS
+    WEBOTS_HOME = "/Applications/Webots.app"
+else:  # Linux
+    WEBOTS_HOME = "/usr/local/webots"
 
+os.environ["WEBOTS_HOME"] = WEBOTS_HOME
+
+WEBOTS_PYTHON_PATH = os.path.join(
+    WEBOTS_HOME,
+    "lib",
+    "controller",
+    "python"
+)
+
+if WEBOTS_PYTHON_PATH not in sys.path:
+    sys.path.insert(0, WEBOTS_PYTHON_PATH)
+    
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
 from gymnasium.wrappers import TimeLimit
