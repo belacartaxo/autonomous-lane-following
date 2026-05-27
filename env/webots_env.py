@@ -49,8 +49,8 @@ class WebotsVehicleEnv(gym.Env):
             dtype=np.float32
         )
 
-        self.action_low = np.array([-0.5, -1.0], dtype=np.float32)
-        self.action_high = np.array([0.5, 1.0], dtype=np.float32)
+        self.action_low = np.array([-0.5, -0.3], dtype=np.float32)
+        self.action_high = np.array([0.5, 0.6], dtype=np.float32)
 
         camera_height = self.camera.getHeight()
         camera_width = self.camera.getWidth()
@@ -224,7 +224,7 @@ class WebotsVehicleEnv(gym.Env):
     def _apply_action(self, action):
         """Apply steering and throttle values to the vehicle actuators."""
         steer_angle = float(action[0])
-        velocity = float(action[1]) * 50.0
+        velocity = float(action[1]) * 30.0
 
         self.left_steering.setPosition(steer_angle)
         self.right_steering.setPosition(steer_angle)
@@ -272,27 +272,22 @@ class WebotsVehicleEnv(gym.Env):
         return True, lane_error, float(yellow_ratio)
 
     def _compute_reward(self, obs, action):
-        """Compute reward using camera lane following and LiDAR obstacle avoidance."""
+        """
+        Compute reward using:
+        - lane following
+        - obstacle avoidance
+        - smooth recovery back to the lane after avoidance
+        """
+
         lidar = obs["lidar"]
         camera = obs["camera"]
 
         steering = float(action[0])
         throttle = float(action[1])
 
-        line_visible, lane_error, yellow_ratio = self._extract_yellow_line_features(camera)
-
-        reward = 0.0
-        done = False
-
-        lidar_size = len(lidar)
-        center = lidar_size // 2
-        front_window = lidar[max(0, center - 10):min(lidar_size, center + 10)]
-
-        front_distance = np.min(front_window)
-        obstacle_near = front_distance < 5.0
-        obstacle_very_close = front_distance < 2.0
-
-        forward_reward = max(0.0, throttle)
+        line_visible, lane_error, yellow_ratio = (
+            self._extract_yellow_line_features(camera)
+        )
 
         current_line_side = None
 
@@ -304,89 +299,176 @@ class WebotsVehicleEnv(gym.Env):
             else:
                 current_line_side = "center"
 
-        if obstacle_near:
-            self.is_avoiding_obstacle = True
+        reward = 0.0
+        done = False
 
-            if line_visible and current_line_side in ["left", "right"]:
-                self.last_line_side = current_line_side
+        # LiDAR processing
 
-        obstacle_just_finished = (
-            self.is_avoiding_obstacle
-            and self.obstacle_was_near
-            and not obstacle_near
+        lidar_size = len(lidar)
+        center = lidar_size // 2
+
+        # Front obstacle detection
+        front_window = lidar[
+            max(0, center - 12):min(lidar_size, center + 12)
+        ]
+
+        # Left and right obstacle analysis
+        left_window = lidar[
+            max(0, center - 45):max(0, center - 15)
+        ]
+
+        right_window = lidar[
+            min(lidar_size, center + 15):min(lidar_size, center + 45)
+        ]
+
+        front_distance = float(np.min(front_window))
+
+        left_distance = (
+            float(np.mean(left_window))
+            if len(left_window) > 0 else 0.0
         )
 
-        self.obstacle_was_near = obstacle_near
+        right_distance = (
+            float(np.mean(right_window))
+            if len(right_window) > 0 else 0.0
+        )
 
-        if line_visible:
+        # Obstacle proximity states
+
+        obstacle_near = front_distance < 10.0
+        obstacle_close = front_distance < 6.0
+        obstacle_very_close = front_distance < 3.0
+
+        # Positive forward speed only
+        forward_speed = max(0.0, throttle)
+
+
+        # 1. Obstacle avoidance has priority
+        if obstacle_near:
+            if obstacle_near:
+                # Save the line side only once, at the beginning of the avoidance maneuver.
+                if not self.is_avoiding_obstacle:
+                    if line_visible and current_line_side is not None:
+                        self.last_line_side = current_line_side
+
+            self.is_avoiding_obstacle = True
+
+            if right_distance > left_distance:
+                desired_steering = 1.0
+            else:
+                desired_steering = -1.0
+
+            steering_alignment = steering * desired_steering
+
+            reward += max(0.0, steering_alignment) * 4.0
+            reward -= max(0.0, -steering_alignment) * 3.0
+
+            if line_visible:
+                self.lost_line_steps = 0
+                center_reward = max(0.0, 1.0 - abs(lane_error))
+                reward += center_reward * 0.3
+            else:
+                self.lost_line_steps += 1
+                reward -= 0.1
+
+            if obstacle_close:
+                reward -= forward_speed * 5.0
+                reward += max(0.0, 0.35 - forward_speed) * 3.0
+            else:
+                reward += forward_speed * 0.2
+
+            if obstacle_very_close:
+                reward -= 30.0
+                reward -= forward_speed * 10.0
+
+        # 2. No obstacle: follow lane
+        elif line_visible:
             self.lost_line_steps = 0
 
-            center_reward = 1.0 - abs(lane_error)
-            
-            self.cumulative_lane_deviation += abs(lane_error)
-            self.lane_deviation_count += 1
+            center_reward = max(0.0, 1.0 - abs(lane_error))
 
-            if obstacle_near:
-                reward += forward_reward * 0.8
-                reward += min(abs(steering), 0.5) * 1.0
-                reward += center_reward * 0.5
-                reward -= abs(lane_error) * 0.3
+            reward += center_reward * 4.0
+            reward += forward_speed * 0.8
+            reward -= abs(lane_error) * 2.0
+            reward -= abs(steering) * 0.2
 
-                if obstacle_very_close:
-                    reward += min(abs(steering), 0.5) * 2.0
-                    reward -= 2.0
+            if abs(lane_error) < 0.15:
+                reward += 2.0
 
-            else:
-                reward += center_reward * 3.0
-                reward += forward_reward * 0.5
+            if self.is_avoiding_obstacle:
+                if self.last_line_side is not None and current_line_side == self.last_line_side:
+                    reward += 18.0
+                elif abs(lane_error) < 0.25:
+                    reward += 12.0
+                else:
+                    reward += 5.0
 
-                reward -= abs(lane_error) * 2.0
-                reward -= abs(steering) * 0.2
+                self.is_avoiding_obstacle = False
+                self.last_line_side = None
 
-                if abs(lane_error) < 0.15:
-                    reward += 2.0
-
-                if obstacle_just_finished and self.last_line_side is not None:
-                    if current_line_side == self.last_line_side:
-                        reward += 8.0
-                    else:
-                        reward -= 8.0
-
-                    self.is_avoiding_obstacle = False
-                    self.last_line_side = None
-
-            if yellow_ratio < 0.001:
-                reward -= 1.0
-
+        # 3. No obstacle and no line
         else:
             self.lost_line_steps += 1
 
-            if obstacle_near:
-                reward -= 1.0
-                reward += forward_reward * 0.5
-                reward += min(abs(steering), 0.5) * 0.5
+            # No obstacle and no line, but the car was avoiding an obstacle.
+            # Now it should try to return to the side where the line was last seen.
+            if self.is_avoiding_obstacle and self.last_line_side is not None:
 
-                self.is_avoiding_obstacle = True
+                if self.last_line_side == "left":
+                    desired_steering = -1.0
+                elif self.last_line_side == "right":
+                    desired_steering = 1.0
+                else:
+                    desired_steering = 0.0
+
+                steering_alignment = steering * desired_steering
+
+                # Small penalty because the line is still lost.
+                reward -= 0.2
+
+                # Reward steering back toward the last known line side.
+                reward += max(0.0, steering_alignment) * 3.0
+
+                # Penalize steering away from the last known line side.
+                reward -= max(0.0, -steering_alignment) * 2.0
+
+                # Encourage slow recovery.
+                reward -= forward_speed * 0.5
+
+            elif self.is_avoiding_obstacle:
+                reward -= 0.2
+                reward += abs(steering) * 0.5
+                reward -= forward_speed * 0.5
+
             else:
                 reward -= 5.0
+                reward -= forward_speed * 1.0
 
-        if throttle < 0:
-            reward += throttle * 0.2
+        # Reverse penalty
+        if throttle < -0.1:
+            reward -= abs(throttle) * 0.5
 
+        # Small step penalty to encourage efficiency
         reward -= 0.01
 
+        # Episode termination conditions
+
+        # Lost line for too long
         if self.lost_line_steps >= self.max_lost_line_steps:
             reward -= 100.0
             done = True
 
+        # Vehicle stuck
         if self.stuck_step_count >= self.stuck_step_limit:
             reward -= 100.0
             done = True
 
-        if np.min(lidar) < 1.1:
-            reward -= 100.0
+        # Collision detected
+        if np.min(lidar) < 2.0:
+            reward -= 150.0
             done = True
 
+        # Maximum episode duration
         self.current_step += 1
 
         if self.current_step >= self.max_episode_steps:
@@ -432,7 +514,7 @@ class WebotsVehicleEnv(gym.Env):
 
         reward, done = self._compute_reward(obs, real_action)
 
-        collision = bool(np.min(obs["lidar"]) < 1.1)
+        collision = bool(np.min(obs["lidar"]) < 2.0)
         return obs, float(reward), done, False, {"collision": collision}
     
     def mean_lane_deviation(self):

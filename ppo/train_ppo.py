@@ -27,7 +27,7 @@ from gymnasium.wrappers import TimeLimit
 from env.webots_env import WebotsVehicleEnv
 
 # Configurações de Treino
-TOTAL_TIMESTEPS = 800_000
+TOTAL_TIMESTEPS = 1_600_000
 
 # Diretórios
 LOG_DIR = "./logs/ppo_baseline/"
