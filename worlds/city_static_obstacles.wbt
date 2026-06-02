@@ -36,9 +36,11 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/YieldSign.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/SpeedLimitSign.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/SpeedLimitPanel.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/TrafficCone.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/advertising_board/protos/AdvertisingBoard.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/HighwayPole.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/HighwaySign.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/obstacles/protos/OilBarrel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/road/protos/Crossroad.proto"
 
 WorldInfo {
@@ -116,7 +118,7 @@ WorldInfo {
 }
 DEF VIEWPOINT Viewpoint {
   orientation 0.5142680974526772 -0.6997229856766484 -0.49589925111675726 4.328715330859436
-  position -49.36230370642793 47.58704221562066 51.069556009294004
+  position -47.22897762937668 46.85552266329119 132.82473453172418
   near 1
   follow "vehicle"
   followSmoothness 0
@@ -1270,6 +1272,176 @@ SpeedLimitSign {
     }
   ]
 }
+DEF CONE_1 TrafficCone {
+  translation -50.81735518417747 33.906799978585504 -0.004076705348097953
+  rotation -0.00027315805812615506 0.9999998490543114 0.0004767347583578483 0.01369084590476361
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_2 TrafficCone {
+  translation -53.34475518417747 33.906799978585504 -0.004076705348097953
+  rotation -0.00027315805812615506 0.9999998490543114 0.0004767347583578483 0.01369084590476361
+  name "traffic cone(1)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_3 TrafficCone {
+  translation -48.16815518417747 34.00949997858551 -0.004076705348097953
+  rotation -0.00027315805812599844 0.9999998490543113 0.0004767347583578397 0.013690845904763611
+  name "traffic cone(2)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_4 TrafficCone {
+  translation -45.10425447635584 26.354345206343417 -0.004076705348097925
+  rotation -0.00021750624472506567 0.9999707010922487 -0.007651774180540829 0.013691245169859999
+  name "traffic cone(3)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_5 TrafficCone {
+  translation -45.56035447635583 33.90824520634343 -0.004076705348097925
+  rotation -0.00021750624472506352 0.9999707010922488 -0.0076517741805348025 0.013691245169859997
+  name "traffic cone(4)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_6 TrafficCone {
+  translation -45.09525518417747 16.183199978585378 -0.004076705348097953
+  rotation -0.00027315805812516003 0.9999998490543114 0.00047673475829136224 0.013690845904763608
+  name "traffic cone(5)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_7 TrafficCone {
+  translation -45.295755184177466 5.310339978585486 -0.004076705348097953
+  rotation -0.00027315805812535096 0.9999998490543114 0.0004767347582952534 0.013690845904763604
+  name "traffic cone(6)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_8 TrafficCone {
+  translation -44.78215518417747 -7.339150021414514 -0.004076705348097953
+  rotation -0.00027315805812535096 0.9999998490543114 0.0004767347582952534 0.013690845904763604
+  name "traffic cone(7)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_9 TrafficCone {
+  translation 33.97404481582253 -53.7608000214145 -0.004076705348097953
+  rotation -0.00027315805812599844 0.9999998490543113 0.0004767347583578397 0.013690845904763611
+  name "traffic cone(8)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_10 TrafficCone {
+  translation 33.969644815822534 -51.435000021414496 -0.004076705348097953
+  rotation -0.0002731580581259254 0.9999998490543113 0.00047673475835784015 0.013690845904763611
+  name "traffic cone(9)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_11 TrafficCone {
+  translation 33.95354481582253 -48.95440002141449 -0.004076705348097953
+  rotation -0.00027315805812614275 0.9999998490543113 0.00047673475835784726 0.013690845904763611
+  name "traffic cone(10)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_12 TrafficCone {
+  translation 33.71714481582253 -45.72340002141449 -0.004076705348097953
+  rotation -0.00027315805812599844 0.9999998490543113 0.0004767347583578397 0.013690845904763611
+  name "traffic cone(11)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_13 TrafficCone {
+  translation -35.36085518417747 -30.23390002141462 -0.004076705348097953
+  rotation -0.000273158058125213 0.9999998490543114 0.00047673475829130576 0.013690845904763608
+  name "traffic cone(12)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_14 TrafficCone {
+  translation -42.32475518417747 -18.60840002141462 -0.004076705348097953
+  rotation -0.00027315805812523094 0.9999998490543114 0.00047673475829133807 0.013690845904763608
+  name "traffic cone(13)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_15 TrafficCone {
+  translation -26.685755184177463 -38.237200021414495 -0.004076705348097953
+  rotation -0.0002731580581261839 0.9999998490543113 0.0004767347583605744 0.01369084590476364
+  name "traffic cone(14)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_16 TrafficCone {
+  translation -13.726455184177539 -43.786400021414494 -0.004076705348097953
+  rotation -0.000273158058126054 0.9999998490543114 0.00047673475835685434 0.013690845904763618
+  name "traffic cone(15)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_17 TrafficCone {
+  translation -1.3851451841775109 -44.86730002141449 -0.004076705348097953
+  rotation -0.0002731580581261877 0.9999998490543114 0.0004767347583640353 0.013690845904763603
+  name "traffic cone(16)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_18 TrafficCone {
+  translation 11.21744481582246 -44.89550002141449 -0.004076705348097953
+  rotation -0.000273158058126054 0.9999998490543114 0.00047673475835685434 0.013690845904763618
+  name "traffic cone(17)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
+DEF CONE_19 TrafficCone {
+  translation 22.153044815822536 -44.81520002141449 -0.004076705348097953
+  rotation -0.00027315805812630023 0.9999998490543113 0.00047673475836057 0.013690845904763636
+  name "traffic cone(18)"
+  physics Physics {
+    density -1
+    mass 1
+  }
+}
 AdvertisingBoard {
   translation 48.100535 -116.28367 0
   rotation 0 0 1 2.61799
@@ -1309,6 +1481,109 @@ HighwayPole {
       ]
     }
   ]
+}
+DEF BARREL_1 OilBarrel {
+  translation -72.627 -104.625 0.599878
+  rotation -2.767176572587184e-19 1.2682626428432965e-19 1 3.14159
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_2 OilBarrel {
+  translation -106.09 -5.3778 0.599878
+  rotation -5.694141725085653e-19 2.135671948499701e-19 1 3.14159
+  name "oil barrel(1)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_3 OilBarrel {
+  translation -104.269 -56.43 0.599878
+  rotation -5.694141725085653e-19 2.135671948499701e-19 1 3.14159
+  name "oil barrel(2)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_4 OilBarrel {
+  translation -1.23 -105.104 0.599878
+  rotation -8.191197549132088e-19 -2.3383829163536928e-19 -0.9999999999999999 1.5707953071795862
+  name "oil barrel(3)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_5 OilBarrel {
+  translation -21.3988 -45.2699 0.5998777206337115
+  rotation 7.574307702573618e-19 -6.648287545099775e-19 -1 1.1781
+  name "oil barrel(4)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_6 OilBarrel {
+  translation -22.9161 -45.3401 0.5998777206337115
+  rotation -6.502265589639625e-19 6.537419205250583e-20 1 1.9634953071795869
+  name "oil barrel(5)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_7 OilBarrel {
+  translation -22.1326 -45.7229 0.5998777206337115
+  rotation -0.1283000423377723 -0.27121029571260197 0.9539308542214204 3.631936330985454e-18
+  name "oil barrel(6)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
+}
+DEF BARREL_8 OilBarrel {
+  translation -48.6853 20.1904 0.5998777206337114
+  rotation 5.087494722270203e-19 1.43939012274468e-19 1 3.01069
+  name "oil barrel(7)"
+  height 1.2
+  radius 0.4
+  physics Physics {
+    density -1
+    mass 100
+    damping Damping {
+    }
+  }
 }
 Crossroad {
   translation -4.5001488 105 0

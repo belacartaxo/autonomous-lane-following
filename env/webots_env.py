@@ -3,24 +3,21 @@ from gymnasium import spaces
 import numpy as np
 import sys
 import os
+
+import src.config as cfg
+
 WEBOTS_HOME = os.environ.get("WEBOTS_HOME", r"C:\Program Files\Webots")
 WEBOTS_PYTHON_PATH = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
+
 if WEBOTS_PYTHON_PATH not in sys.path:
     sys.path.append(WEBOTS_PYTHON_PATH)
+
 from controller import Supervisor
 
 
 class WebotsVehicleEnv(gym.Env):
     """
     Gymnasium environment for autonomous vehicle lane following in Webots.
-
-    Action Space:
-        Box(2,): normalized [steering, throttle/brake] in [-1, 1]
-
-    Observation Space:
-        Dict with:
-        - "lidar": LiDAR distance measurements
-        - "camera": RGB image
     """
 
     def __init__(self):
@@ -49,8 +46,8 @@ class WebotsVehicleEnv(gym.Env):
             dtype=np.float32
         )
 
-        self.action_low = np.array([-0.5, -0.3], dtype=np.float32)
-        self.action_high = np.array([0.5, 0.6], dtype=np.float32)
+        self.action_low = np.array(cfg.ACTION_LOW, dtype=np.float32)
+        self.action_high = np.array(cfg.ACTION_HIGH, dtype=np.float32)
 
         camera_height = self.camera.getHeight()
         camera_width = self.camera.getWidth()
@@ -84,8 +81,8 @@ class WebotsVehicleEnv(gym.Env):
             self.wheels.append(wheel)
 
         self.stuck_step_count = 0
-        self.stuck_step_limit = 500
-        self.stuck_distance_threshold = 0.001
+        self.stuck_step_limit = cfg.STUCK_STEP_LIMIT
+        self.stuck_distance_threshold = cfg.STUCK_DISTANCE_THRESHOLD
         self.previous_position = np.array(
             self.translation_field.getSFVec3f(),
             dtype=np.float32
@@ -94,11 +91,11 @@ class WebotsVehicleEnv(gym.Env):
         self.lost_line_steps = 0
         self.cumulative_lane_deviation = 0.0
         self.lane_deviation_count = 0
-        self.max_lost_line_steps = 300
+        self.max_lost_line_steps = cfg.MAX_LOST_LINE_STEPS
 
         self.current_step = 0
-        self.max_episode_steps = 5000
-        
+        self.max_episode_steps = cfg.MAX_EPISODE_STEPS
+
         self.viewpoint_node = self.robot.getFromDef("VIEWPOINT")
 
         if self.viewpoint_node is not None:
@@ -113,7 +110,7 @@ class WebotsVehicleEnv(gym.Env):
             self.viewpoint_orientation_field = None
             self.initial_viewpoint_position = None
             self.initial_viewpoint_orientation = None
-        
+
         self.resettable_def_names = (
             [f"BARREL_{i}" for i in range(1, 9)] +
             [f"CONE_{i}" for i in range(1, 20)] +
@@ -140,7 +137,7 @@ class WebotsVehicleEnv(gym.Env):
             })
 
         self.is_avoiding_obstacle = False
-        self.last_line_side = None  # "left" or "right"
+        self.last_line_side = None
         self.obstacle_was_near = False
 
     def _denormalize_action(self, action):
@@ -173,14 +170,14 @@ class WebotsVehicleEnv(gym.Env):
             wheel.setVelocity(0.0)
 
         self.is_avoiding_obstacle = False
-        self.last_line_side = None  # "left" or "right"
+        self.last_line_side = None
         self.obstacle_was_near = False
 
         self.robot.step(self.timestep)
 
         for wheel in self.wheels:
             wheel.setVelocity(0.0)
-            
+
         self.stuck_step_count = 0
         self.previous_position = np.array(
             self.translation_field.getSFVec3f(),
@@ -224,7 +221,7 @@ class WebotsVehicleEnv(gym.Env):
     def _apply_action(self, action):
         """Apply steering and throttle values to the vehicle actuators."""
         steer_angle = float(action[0])
-        velocity = float(action[1]) * 30.0
+        velocity = float(action[1]) * cfg.MAX_VELOCITY
 
         self.left_steering.setPosition(steer_angle)
         self.right_steering.setPosition(steer_angle)
@@ -235,11 +232,6 @@ class WebotsVehicleEnv(gym.Env):
     def _extract_yellow_line_features(self, camera_image):
         """
         Detect the yellow lane line using the camera image.
-
-        Returns:
-            line_visible: whether the yellow line was detected
-            lane_error: normalized horizontal error between line center and image center
-            yellow_ratio: percentage of pixels classified as yellow
         """
         height, width, _ = camera_image.shape
 
@@ -273,28 +265,23 @@ class WebotsVehicleEnv(gym.Env):
 
     def _compute_reward(self, obs, action):
         """
-        Compute reward using:
-        - lane following
-        - obstacle avoidance
-        - smooth recovery back to the lane after avoidance
+        Compute reward using lane following, obstacle avoidance,
+        and recovery back to the lane after avoiding an obstacle.
         """
-
         lidar = obs["lidar"]
         camera = obs["camera"]
 
         steering = float(action[0])
         throttle = float(action[1])
 
-        line_visible, lane_error, yellow_ratio = (
-            self._extract_yellow_line_features(camera)
-        )
+        line_visible, lane_error, yellow_ratio = self._extract_yellow_line_features(camera)
 
         current_line_side = None
 
         if line_visible:
-            if lane_error < -0.15:
+            if lane_error < -cfg.LINE_SIDE_THRESHOLD:
                 current_line_side = "left"
-            elif lane_error > 0.15:
+            elif lane_error > cfg.LINE_SIDE_THRESHOLD:
                 current_line_side = "right"
             else:
                 current_line_side = "center"
@@ -302,17 +289,13 @@ class WebotsVehicleEnv(gym.Env):
         reward = 0.0
         done = False
 
-        # LiDAR processing
-
         lidar_size = len(lidar)
         center = lidar_size // 2
 
-        # Front obstacle detection
         front_window = lidar[
             max(0, center - 12):min(lidar_size, center + 12)
         ]
 
-        # Left and right obstacle analysis
         left_window = lidar[
             max(0, center - 45):max(0, center - 15)
         ]
@@ -333,23 +316,16 @@ class WebotsVehicleEnv(gym.Env):
             if len(right_window) > 0 else 0.0
         )
 
-        # Obstacle proximity states
+        obstacle_near = front_distance < cfg.OBSTACLE_NEAR_DISTANCE
+        obstacle_close = front_distance < cfg.OBSTACLE_CLOSE_DISTANCE
+        obstacle_very_close = front_distance < cfg.OBSTACLE_VERY_CLOSE_DISTANCE
 
-        obstacle_near = front_distance < 10.0
-        obstacle_close = front_distance < 6.0
-        obstacle_very_close = front_distance < 3.0
-
-        # Positive forward speed only
         forward_speed = max(0.0, throttle)
 
-
-        # 1. Obstacle avoidance has priority
         if obstacle_near:
-            if obstacle_near:
-                # Save the line side only once, at the beginning of the avoidance maneuver.
-                if not self.is_avoiding_obstacle:
-                    if line_visible and current_line_side is not None:
-                        self.last_line_side = current_line_side
+            if not self.is_avoiding_obstacle:
+                if line_visible and current_line_side is not None:
+                    self.last_line_side = current_line_side
 
             self.is_avoiding_obstacle = True
 
@@ -360,60 +336,61 @@ class WebotsVehicleEnv(gym.Env):
 
             steering_alignment = steering * desired_steering
 
-            reward += max(0.0, steering_alignment) * 4.0
-            reward -= max(0.0, -steering_alignment) * 3.0
+            reward += max(0.0, steering_alignment) * cfg.AVOIDANCE_STEERING_REWARD
+            reward -= max(0.0, -steering_alignment) * cfg.AVOIDANCE_WRONG_STEERING_PENALTY
 
             if line_visible:
                 self.lost_line_steps = 0
                 center_reward = max(0.0, 1.0 - abs(lane_error))
-                reward += center_reward * 0.3
+                reward += center_reward * cfg.AVOIDANCE_LINE_CENTER_WEIGHT
             else:
                 self.lost_line_steps += 1
-                reward -= 0.1
+                reward -= cfg.RECOVERY_LINE_LOST_PENALTY
 
             if obstacle_close:
-                reward -= forward_speed * 5.0
-                reward += max(0.0, 0.35 - forward_speed) * 3.0
+                reward -= forward_speed * cfg.OBSTACLE_SPEED_PENALTY
+                reward += max(
+                    0.0,
+                    cfg.OBSTACLE_SLOW_SPEED_TARGET - forward_speed
+                ) * cfg.OBSTACLE_SLOW_SPEED_REWARD
             else:
-                reward += forward_speed * 0.2
+                reward += forward_speed * cfg.AVOIDANCE_FORWARD_REWARD
 
             if obstacle_very_close:
-                reward -= 30.0
-                reward -= forward_speed * 10.0
+                reward -= cfg.VERY_CLOSE_OBSTACLE_PENALTY
+                reward -= forward_speed * cfg.VERY_CLOSE_SPEED_PENALTY
 
-        # 2. No obstacle: follow lane
         elif line_visible:
             self.lost_line_steps = 0
 
             center_reward = max(0.0, 1.0 - abs(lane_error))
 
-            reward += center_reward * 4.0
-            reward += forward_speed * 0.8
-            reward -= abs(lane_error) * 2.0
-            reward -= abs(steering) * 0.2
+            reward += center_reward * cfg.CENTER_REWARD_WEIGHT
+            reward += forward_speed * cfg.FORWARD_REWARD_WEIGHT
+            reward -= abs(lane_error) * cfg.LANE_ERROR_PENALTY
+            reward -= abs(steering) * cfg.STEERING_SMOOTHNESS_PENALTY
 
-            if abs(lane_error) < 0.15:
-                reward += 2.0
+            if abs(lane_error) < cfg.LINE_CENTER_THRESHOLD:
+                reward += cfg.CENTERED_LINE_BONUS
 
             if self.is_avoiding_obstacle:
-                if self.last_line_side is not None and current_line_side == self.last_line_side:
-                    reward += 18.0
-                elif abs(lane_error) < 0.25:
-                    reward += 12.0
+                if (
+                    self.last_line_side is not None
+                    and current_line_side == self.last_line_side
+                ):
+                    reward += cfg.RECOVERY_SAME_SIDE_BONUS
+                elif abs(lane_error) < cfg.RECOVERY_CENTER_THRESHOLD:
+                    reward += cfg.RECOVERY_CENTER_BONUS
                 else:
-                    reward += 5.0
+                    reward += cfg.RECOVERY_PARTIAL_BONUS
 
                 self.is_avoiding_obstacle = False
                 self.last_line_side = None
 
-        # 3. No obstacle and no line
         else:
             self.lost_line_steps += 1
 
-            # No obstacle and no line, but the car was avoiding an obstacle.
-            # Now it should try to return to the side where the line was last seen.
             if self.is_avoiding_obstacle and self.last_line_side is not None:
-
                 if self.last_line_side == "left":
                     desired_steering = -1.0
                 elif self.last_line_side == "right":
@@ -423,52 +400,37 @@ class WebotsVehicleEnv(gym.Env):
 
                 steering_alignment = steering * desired_steering
 
-                # Small penalty because the line is still lost.
-                reward -= 0.2
-
-                # Reward steering back toward the last known line side.
-                reward += max(0.0, steering_alignment) * 3.0
-
-                # Penalize steering away from the last known line side.
-                reward -= max(0.0, -steering_alignment) * 2.0
-
-                # Encourage slow recovery.
-                reward -= forward_speed * 0.5
+                reward -= cfg.RECOVERY_LINE_LOST_PENALTY
+                reward += max(0.0, steering_alignment) * cfg.RECOVERY_STEERING_REWARD
+                reward -= max(0.0, -steering_alignment) * cfg.RECOVERY_WRONG_STEERING_PENALTY
+                reward -= forward_speed * cfg.RECOVERY_SPEED_PENALTY
 
             elif self.is_avoiding_obstacle:
-                reward -= 0.2
-                reward += abs(steering) * 0.5
-                reward -= forward_speed * 0.5
+                reward -= cfg.RECOVERY_LINE_LOST_PENALTY
+                reward += abs(steering) * cfg.RECOVERY_NO_SIDE_STEERING_REWARD
+                reward -= forward_speed * cfg.RECOVERY_SPEED_PENALTY
 
             else:
-                reward -= 5.0
-                reward -= forward_speed * 1.0
+                reward -= cfg.LINE_LOST_PENALTY
+                reward -= forward_speed * cfg.LINE_LOST_SPEED_PENALTY
 
-        # Reverse penalty
         if throttle < -0.1:
-            reward -= abs(throttle) * 0.5
+            reward -= abs(throttle) * cfg.REVERSE_PENALTY
 
-        # Small step penalty to encourage efficiency
-        reward -= 0.01
+        reward -= cfg.STEP_PENALTY
 
-        # Episode termination conditions
-
-        # Lost line for too long
         if self.lost_line_steps >= self.max_lost_line_steps:
-            reward -= 100.0
+            reward -= cfg.LOST_LINE_DONE_PENALTY
             done = True
 
-        # Vehicle stuck
         if self.stuck_step_count >= self.stuck_step_limit:
-            reward -= 100.0
+            reward -= cfg.STUCK_DONE_PENALTY
             done = True
 
-        # Collision detected
-        if np.min(lidar) < 2.0:
-            reward -= 150.0
+        if np.min(lidar) < cfg.COLLISION_DISTANCE:
+            reward -= cfg.COLLISION_PENALTY
             done = True
 
-        # Maximum episode duration
         self.current_step += 1
 
         if self.current_step >= self.max_episode_steps:
@@ -514,12 +476,15 @@ class WebotsVehicleEnv(gym.Env):
 
         reward, done = self._compute_reward(obs, real_action)
 
-        collision = bool(np.min(obs["lidar"]) < 2.0)
+        collision = bool(np.min(obs["lidar"]) < cfg.COLLISION_DISTANCE)
+
         return obs, float(reward), done, False, {"collision": collision}
-    
+
     def mean_lane_deviation(self):
+        """Return the mean lane deviation accumulated during the episode."""
         if self.lane_deviation_count == 0:
             return 1.0
+
         return self.cumulative_lane_deviation / self.lane_deviation_count
 
 
