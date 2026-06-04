@@ -55,7 +55,7 @@ class WebotsCriticalVehicleEnv(WebotsVehicleEnv):
             return reward, done
 
         # Normal environment reward
-        reward, done = super()._compute_reward(obs, action)
+        reward, done, termination_reason = super()._compute_reward(obs, action)
 
         # Encourage moving again after obstacle disappears
         if throttle > 0.1:

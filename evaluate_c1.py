@@ -27,6 +27,7 @@ import time
 from collections import Counter
 import numpy as np
 import platform
+import src.config as cfg
 
 if platform.system() == "Windows":
     WEBOTS_HOME = r"C:\Program Files\Webots"
@@ -51,8 +52,7 @@ if WEBOTS_PYTHON_PATH not in sys.path:
 SEED = 42
 np.random.seed(SEED)
 
-MAX_STEPS = 5000
-N_EPISODES = 100
+N_EPISODES = 5
 
 
 def build_env(algo: str):
@@ -87,7 +87,7 @@ def run(algo: str, model_path: str):
     print(f"  Algorithm : {algo.upper()}")
     print(f"  Model     : {model_path}")
     print(f"  Episodes  : {N_EPISODES}")
-    print(f"  Max steps : {MAX_STEPS}")
+    print(f"  Max steps : {cfg.MAX_EPISODE_STEPS}")
     print(f"{'=' * 55}\n")
 
     env   = build_env(algo)
@@ -105,7 +105,7 @@ def run(algo: str, model_path: str):
         collision    = False
         ep_start     = time.time()
 
-        while not done and steps < MAX_STEPS:
+        while not done and steps < cfg.MAX_EPISODE_STEPS:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, _, info = env.step(action)
 
@@ -122,12 +122,12 @@ def run(algo: str, model_path: str):
             else float("nan")
         )
 
-        success       = (not collision) and (steps >= MAX_STEPS)
+        success       = (not collision) and (steps >= cfg.MAX_EPISODE_STEPS)
         non_collision = not collision
 
         if collision:
             termination = "collision"
-        elif steps >= MAX_STEPS:
+        elif steps >= cfg.MAX_EPISODE_STEPS:
             termination = "max_steps"
         else:
             termination = "early_end"
@@ -181,7 +181,7 @@ def run(algo: str, model_path: str):
         "condition"            : "C1",
         "model_path"           : model_path,
         "n_episodes"           : N_EPISODES,
-        "max_steps"            : MAX_STEPS,
+        "max_steps"            : cfg.MAX_EPISODE_STEPS,
         "seed"                 : SEED,
         "success_rate_pct"     : round(float(success_rate),       2),
         "non_collision_rate_pct": round(float(non_collision_rate), 2),
