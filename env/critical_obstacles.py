@@ -20,7 +20,7 @@ class CriticalObstacleManager:
                 "trigger_distance": 25.0,
                 "move_direction": [0.0, 1.0, 0.0],
                 "move_distance": 20.0,
-                "speed": 0.08,
+                "speed": 0.01,
                 "active": False,
                 "completed": False,
             },

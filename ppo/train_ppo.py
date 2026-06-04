@@ -25,15 +25,16 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
 from gymnasium.wrappers import TimeLimit
 from env.webots_env import WebotsVehicleEnv
+from env.webots_critical_env import WebotsCriticalVehicleEnv
 
 # Configurações de Treino
 TOTAL_TIMESTEPS = 1_600_000
 
 # Diretórios
-LOG_DIR = "./logs/ppo_baseline/"
-SAVE_DIR = "./models/ppo_baseline/"
-BEST_MODEL_DIR = "./models/ppo_baseline/ppo_best/"
-FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_baseline_final")
+LOG_DIR = "./logs/ppo_critical/"
+SAVE_DIR = "./models/ppo_critical/"
+BEST_MODEL_DIR = "./models/ppo_critical/ppo_best/"
+FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_critical_final")
 
 # Garantir que as pastas existem
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -42,6 +43,7 @@ os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 # Inicializar Ambiente com Limite de Tempo
 env = WebotsVehicleEnv()
+#env = WebotsCriticalVehicleEnv()
 env = TimeLimit(env, max_episode_steps=5000) # Limite de 5000 passos por episódio
 
 model_zip_path = FINAL_MODEL_PATH + ".zip"

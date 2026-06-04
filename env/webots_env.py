@@ -274,6 +274,23 @@ class WebotsVehicleEnv(gym.Env):
 
         return True, lane_error, float(yellow_ratio)
 
+    def _get_collision_lidar_info(self, lidar):
+        """Return collision info using all LiDAR rays, not only the front window."""
+        lidar_values = np.array(lidar, dtype=np.float32)
+
+        valid_lidar = lidar_values[
+            np.isfinite(lidar_values) &
+            (lidar_values > 0.10)
+        ]
+
+        if len(valid_lidar) == 0:
+            return float("inf"), 0
+
+        min_lidar_distance = float(np.min(valid_lidar))
+        collision_ray_count = int(np.sum(valid_lidar < cfg.COLLISION_DISTANCE))
+
+        return min_lidar_distance, collision_ray_count
+
     def _get_front_lidar_info(self, lidar):
         """Return robust front LiDAR information, ignoring isolated noisy rays."""
         lidar_values = np.array(lidar, dtype=np.float32)
@@ -298,10 +315,6 @@ class WebotsVehicleEnv(gym.Env):
 
         return min_front_lidar, close_ray_count
 
-    def _get_front_lidar_distance(self, lidar):
-        """Return only the robust minimum front LiDAR distance."""
-        min_front_lidar, _ = self._get_front_lidar_info(lidar)
-        return min_front_lidar
 
     def _compute_reward(self, obs, action):
         """
@@ -343,8 +356,8 @@ class WebotsVehicleEnv(gym.Env):
             min(lidar_size, center + 15):min(lidar_size, center + 45)
         ]
 
-        front_distance, close_ray_count = self._get_front_lidar_info(lidar)
-
+        front_distance, _ = self._get_front_lidar_info(lidar)
+        min_lidar_distance, collision_ray_count = self._get_collision_lidar_info(lidar)
         left_distance = (
             float(np.mean(left_window))
             if len(left_window) > 0 else 0.0
@@ -481,7 +494,7 @@ class WebotsVehicleEnv(gym.Env):
             done = True
             termination_reason = "stuck"
 
-        if close_ray_count >= 3:
+        if collision_ray_count >= 3:
             self.collision_step_count += 1
         else:
             self.collision_step_count = 0
@@ -539,15 +552,18 @@ class WebotsVehicleEnv(gym.Env):
 
         reward, done, termination_reason = self._compute_reward(obs, real_action)
 
-        min_front_lidar, close_ray_count = self._get_front_lidar_info(obs["lidar"])
+        min_lidar_distance, collision_ray_count = self._get_collision_lidar_info(obs["lidar"])
+        min_front_lidar, close_front_ray_count = self._get_front_lidar_info(obs["lidar"])   
 
         collision = bool(termination_reason == "collision")
 
         return obs, float(reward), done, False, {
             "collision": collision,
             "termination_reason": termination_reason,
-            "close_front_rays": close_ray_count,
+            "close_front_rays": close_front_ray_count,
+            "collision_rays": collision_ray_count,
             "min_front_lidar": min_front_lidar,
+            "min_lidar_distance": min_lidar_distance,
             "lost_line_steps": self.lost_line_steps,
             "stuck_step_count": self.stuck_step_count,
             "collision_step_count": self.collision_step_count,
