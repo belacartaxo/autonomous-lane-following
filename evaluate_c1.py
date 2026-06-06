@@ -52,7 +52,7 @@ if WEBOTS_PYTHON_PATH not in sys.path:
 SEED = 42
 np.random.seed(SEED)
 
-N_EPISODES = 5
+N_EPISODES = 100
 
 
 def build_env(algo: str):

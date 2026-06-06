@@ -6,7 +6,7 @@ ACTION_HIGH = [0.5, 0.6]
 MAX_VELOCITY = 30.0
 
 # Episode limits
-MAX_EPISODE_STEPS = 7000
+MAX_EPISODE_STEPS = 5000
 MAX_LOST_LINE_STEPS = 300
 
 # Stuck detection
