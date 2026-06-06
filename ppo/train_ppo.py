@@ -31,10 +31,10 @@ from env.webots_critical_env import WebotsCriticalVehicleEnv
 TOTAL_TIMESTEPS = 1_600_000
 
 # Diretórios
-LOG_DIR = "./logs/ppo_critical/"
-SAVE_DIR = "./models/ppo_critical/"
-BEST_MODEL_DIR = "./models/ppo_critical/ppo_best/"
-FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_critical_final")
+LOG_DIR = "./logs/ppo_baseline/"
+SAVE_DIR = "./models/ppo_baseline/"
+BEST_MODEL_DIR = "./models/ppo_baseline/ppo_best/"
+FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_baseline_final")
 
 # Garantir que as pastas existem
 os.makedirs(LOG_DIR, exist_ok=True)
