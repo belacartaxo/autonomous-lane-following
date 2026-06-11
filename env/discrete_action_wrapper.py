@@ -12,12 +12,12 @@ class DiscreteActionWrapper(gym.ActionWrapper):
 
         # Define discrete actions
         self.actions = [
-            np.array([0.0, 0.6]),  # forward
-            np.array([-0.4, 0.6]),  # strong left
-            np.array([0.4, 0.6]),  # strong right
-            np.array([-0.2, 0.6]),  # slight left
-            np.array([0.2, 0.6]),  # slight right
-            np.array([0.0, 0.0])  # stop
+            np.array([0.0, 1.0]),
+            np.array([-0.1, 1.0]),
+            np.array([0.1, 1.0]),
+            np.array([-0.2, 0.95]),
+            np.array([0.2, 0.95]),
+            np.array([-0.35, 0.85]),
         ]
 
         self.action_space = spaces.Discrete(len(self.actions))
