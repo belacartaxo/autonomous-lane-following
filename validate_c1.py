@@ -28,8 +28,8 @@ RESULTS_DIR = "./results"
 PLOTS_DIR   = "./results/plots"
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
-DQN_PATH = os.path.join(RESULTS_DIR, "c1_dqn_static.json")
-PPO_PATH = os.path.join(RESULTS_DIR, "c1_ppo_static.json")
+DQN_PATH = os.path.join(RESULTS_DIR, "c1_dqn_default.json")
+PPO_PATH = os.path.join(RESULTS_DIR, "c1_ppo_default.json")
 
 # ── Colors (match presentation) ────────────────────────────────────────────────
 DQN_COLOR  = "#00B4D8"   # cyan
