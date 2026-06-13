@@ -1,5 +1,7 @@
 import numpy as np
 
+import src.config as cfg
+
 from env.webots_env import WebotsVehicleEnv
 from env.critical_obstacles import CriticalObstacleManager
 
@@ -20,7 +22,7 @@ class WebotsCriticalVehicleEnv(WebotsVehicleEnv):
         )
 
         self.not_stopped_step_count = 0
-        self.max_not_stopped_steps = int(5000 / self.timestep)
+        self.max_not_stopped_steps = 1500  # ~1500 steps to come to a full stop after trigger
 
         self.full_stop_speed_threshold = 0.005
         self.forward_throttle_threshold = 0.1
@@ -59,22 +61,6 @@ class WebotsCriticalVehicleEnv(WebotsVehicleEnv):
         self.previous_critical_position = current_position
 
         return float(movement)
-
-    def _get_collision_lidar_info(self, lidar):
-        lidar_values = np.array(lidar, dtype=np.float32)
-
-        valid_lidar = lidar_values[
-            np.isfinite(lidar_values) &
-            (lidar_values > 0.10)
-        ]
-
-        if len(valid_lidar) == 0:
-            return float("inf"), 0
-
-        min_lidar_distance = float(np.min(valid_lidar))
-        collision_ray_count = int(np.sum(valid_lidar < cfg.COLLISION_DISTANCE))
-
-        return min_lidar_distance, collision_ray_count
 
     def _compute_reward(self, obs, action):
         throttle = float(action[1])
