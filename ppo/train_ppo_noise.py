@@ -1,5 +1,4 @@
 
-# ─── Ajusta este path para o teu Mac ───────────────────────────────────────────
 import sys
 sys.path.insert(0, '/Applications/Webots.app/Contents/lib/controller/python')
 import os
