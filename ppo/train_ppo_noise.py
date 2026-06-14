@@ -1,5 +1,3 @@
-# File: train_ppo_noise.py
-
 import os
 import sys
 import platform
@@ -81,7 +79,7 @@ else:
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
-    name_prefix="ppo_noise_lane",
+    name_prefix="ppo_noise",
 )
 
 eval_callback = EvalCallback(
