@@ -13,7 +13,7 @@ from env.webots_env import WebotsVehicleEnv
 from env.lidar_noise_wrapper import LiDARNoiseWrapper
 
 # ─── Configurações de Treino ───────────────────────────────────────────────────
-TOTAL_TIMESTEPS = 800_000
+TOTAL_TIMESTEPS = 1_600_000
 
 # Parâmetros de ruído (mesmos descritos no proposal)
 NOISE_STD       = 0.1   # desvio padrão do ruído Gaussiano
