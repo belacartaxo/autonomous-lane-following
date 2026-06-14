@@ -2,7 +2,7 @@
   "algo": "PPO",
   "condition": "C2",
   "condition_name": "Sensor Noise",
-  "model_path": "./best_models/ppo_default_noise_best",
+  "model_path": "./best_models/c2_ppo_default_noise_best",
   "n_episodes": 100,
   "max_steps": 5000,
   "seed": 42,

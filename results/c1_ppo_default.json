@@ -1,7 +1,7 @@
 {
   "algo": "PPO",
   "condition": "C1",
-  "model_path": "./best_models/ppo_default_best",
+  "model_path": "./best_models/c1_ppo_default_best",
   "n_episodes": 100,
   "max_steps": 5000,
   "seed": 42,
