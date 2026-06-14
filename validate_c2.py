@@ -32,11 +32,11 @@ RESULTS_DIR = "./results"
 PLOTS_DIR = "./results/plots"
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
-DQN_PATH = os.path.join(RESULTS_DIR, "c2_dqn.json")
-PPO_PATH = os.path.join(RESULTS_DIR, "c2_ppo.json")
+DQN_PATH = os.path.join(RESULTS_DIR, "c2_dqn_default_noise.json")
+PPO_PATH = os.path.join(RESULTS_DIR, "c2_ppo_default_noise.json")
 
-C1_DQN_PATH = os.path.join(RESULTS_DIR, "c1_dqn.json")
-C1_PPO_PATH = os.path.join(RESULTS_DIR, "c1_ppo.json")
+# C1_DQN_PATH = os.path.join(RESULTS_DIR, "c1_dqn.json")
+# C1_PPO_PATH = os.path.join(RESULTS_DIR, "c1_ppo.json")
 
 DQN_COLOR = "#00B4D8"
 PPO_COLOR = "#F59E0B"
