@@ -81,7 +81,7 @@ else:
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
-    name_prefix="ppo_noise",
+    name_prefix="ppo_noise_lane",
 )
 
 eval_callback = EvalCallback(

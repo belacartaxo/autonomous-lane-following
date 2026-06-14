@@ -26,6 +26,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from gymnasium.wrappers import TimeLimit
 
 from env.webots_env import WebotsVehicleEnv
+from env.discrete_action_wrapper import DiscreteActionWrapper
 from env.lidar_noise_wrapper import LiDARNoiseWrapper
 from env.discrete_action_wrapper import DiscreteActionWrapper
 
@@ -36,8 +37,9 @@ LOG_DIR = "./logs/dqn_noise/"
 SAVE_DIR = "./models/dqn_noise/"
 FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "dqn_noise_final")
 
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(SAVE_DIR, exist_ok=True)
+NOISE_STD       = 0.1
+DROPOUT_PROB    = 0.1
+LIDAR_MAX_RANGE = 100.0
 
 base_env = WebotsVehicleEnv()
 
@@ -46,6 +48,9 @@ env = LiDARNoiseWrapper(
     noise_std=0.1,
     dropout_prob=0.1
 )
+env = DiscreteActionWrapper(env)
+env = TimeLimit(env, max_episode_steps=5000)
+env = Monitor(env, LOG_DIR)
 
 env = DiscreteActionWrapper(env)
 env = TimeLimit(env, max_episode_steps=5000)
