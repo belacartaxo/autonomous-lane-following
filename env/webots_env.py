@@ -6,7 +6,7 @@ import numpy as np
 import sys
 import os
 
-import src.config as cfg
+import configs.env_config as cfg
 
 WEBOTS_HOME = os.environ.get("WEBOTS_HOME", r"C:\Program Files\Webots")
 WEBOTS_PYTHON_PATH = os.path.join(WEBOTS_HOME, "lib", "controller", "python")

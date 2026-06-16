@@ -1,49 +1,20 @@
 """
-validate_c3.py — Gera plots e tabela da condição C3 Dynamic Obstacles.
-
-Uso:
-    python validate_c3.py
-
-Requer:
-    results/c3_dqn.json
-    results/c3_ppo.json
-
-Opcional, para comparar C1 Static → C3 Dynamic:
-    results/c1_dqn_static.json
-    results/c1_ppo_static.json
-
-Gera em results/plots_c3/:
-    c3_summary_bar.png
-    c3_lane_deviation.png
-    c3_termination.png
-    c3_reward_dist.png
-    c3_obstacle_activity.png
-    c3_stopping_behavior.png
-    c3_vs_c1_static_success.png
+Cenários disponíveis: c1-c6
+python validate.py --scenario c1
 """
-
+import argparse
 import json
 import os
 
 import numpy as np
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-
-# ── Paths ──────────────────────────────────────────────────────────────────────
-RESULTS_DIR = "./results"
-PLOTS_DIR = "./results/plots_c3"
-os.makedirs(PLOTS_DIR, exist_ok=True)
-
-DQN_PATH = os.path.join(RESULTS_DIR, "c3_dqn.json")
-PPO_PATH = os.path.join(RESULTS_DIR, "c3_ppo.json")
-
-C1_DQN_PATH = os.path.join(RESULTS_DIR, "c1_dqn_static.json")
-C1_PPO_PATH = os.path.join(RESULTS_DIR, "c1_ppo_static.json")
+from configs.validation_config import RESULTS_DIR, SCENARIOS
 
 
-# ── Colors ─────────────────────────────────────────────────────────────────────
 DQN_COLOR = "#00B4D8"
 PPO_COLOR = "#F59E0B"
 BG_COLOR = "#161B22"
@@ -66,33 +37,52 @@ plt.rcParams.update({
 })
 
 
-def load(path):
-    with open(path) as f:
-        return json.load(f)
+def load_json(path):
+    with open(path, "r") as file:
+        return json.load(file)
 
 
-def check_files():
+def get_result_paths(scenario_config):
+    dqn_path = os.path.join(RESULTS_DIR, scenario_config["dqn_file"])
+    ppo_path = os.path.join(RESULTS_DIR, scenario_config["ppo_file"])
+    return dqn_path, ppo_path
+
+
+def check_files(dqn_path, ppo_path):
     missing = []
 
-    if not os.path.exists(DQN_PATH):
-        missing.append(DQN_PATH)
+    if not os.path.exists(dqn_path):
+        missing.append(dqn_path)
 
-    if not os.path.exists(PPO_PATH):
-        missing.append(PPO_PATH)
+    if not os.path.exists(ppo_path):
+        missing.append(ppo_path)
 
     if missing:
         print(f"\nFicheiros em falta: {missing}")
-        print("Corre primeiro evaluate_c3.py para DQN e PPO.")
+        print("Corre primeiro o evaluate.py para DQN e PPO neste cenário.")
         return False
 
     return True
 
 
-def has_c1_static_files():
-    return os.path.exists(C1_DQN_PATH) and os.path.exists(C1_PPO_PATH)
+def save_plot(fig, plots_dir, filename):
+    os.makedirs(plots_dir, exist_ok=True)
+
+    path = os.path.join(plots_dir, filename)
+
+    fig.savefig(
+        path,
+        dpi=150,
+        bbox_inches="tight",
+        facecolor=BG_COLOR,
+    )
+
+    plt.close(fig)
+
+    print(f"Guardado: {path}")
 
 
-def plot_summary(dqn, ppo):
+def plot_summary(dqn, ppo, scenario, scenario_name, plots_dir):
     metrics = ["Success (%)", "Non-Collision (%)", "Collision (%)"]
 
     dqn_vals = [
@@ -142,7 +132,7 @@ def plot_summary(dqn, ppo):
             color="#F1F5F9",
         )
 
-    ax.set_title("C3 — Dynamic Obstacles Summary", pad=12)
+    ax.set_title(f"{scenario.upper()} — {scenario_name} Summary", pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(metrics)
     ax.set_ylabel("Episodes (%)")
@@ -151,24 +141,20 @@ def plot_summary(dqn, ppo):
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_summary_bar.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
-
-    print(f"Guardado: {path}")
+    save_plot(fig, plots_dir, f"{scenario}_summary_bar.png")
 
 
-def plot_lane_deviation(dqn, ppo):
+def plot_lane_deviation(dqn, ppo, scenario, scenario_name, plots_dir):
     dqn_devs = [
         ep["lane_deviation"]
         for ep in dqn["episodes"]
-        if ep["lane_deviation"] is not None
+        if ep.get("lane_deviation") is not None
     ]
 
     ppo_devs = [
         ep["lane_deviation"]
         for ep in ppo["episodes"]
-        if ep["lane_deviation"] is not None
+        if ep.get("lane_deviation") is not None
     ]
 
     fig, ax = plt.subplots(figsize=(7, 5))
@@ -181,7 +167,12 @@ def plot_lane_deviation(dqn, ppo):
         medianprops=dict(color="#F1F5F9", linewidth=2),
         whiskerprops=dict(color="#94A3B8"),
         capprops=dict(color="#94A3B8"),
-        flierprops=dict(marker="o", color="#94A3B8", alpha=0.5, markersize=4),
+        flierprops=dict(
+            marker="o",
+            color="#94A3B8",
+            alpha=0.5,
+            markersize=4,
+        ),
     )
 
     bp["boxes"][0].set_facecolor(DQN_COLOR)
@@ -189,19 +180,15 @@ def plot_lane_deviation(dqn, ppo):
     bp["boxes"][1].set_facecolor(PPO_COLOR)
     bp["boxes"][1].set_alpha(0.75)
 
-    ax.set_title("C3 — Lane Deviation Distribution", pad=12)
+    ax.set_title(f"{scenario.upper()} — Lane Deviation Distribution", pad=12)
     ax.set_ylabel("Lane deviation (normalised, 0–1)")
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_lane_deviation.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
-
-    print(f"Guardado: {path}")
+    save_plot(fig, plots_dir, f"{scenario}_lane_deviation.png")
 
 
-def plot_termination(dqn, ppo):
+def plot_termination(dqn, ppo, scenario, scenario_name, plots_dir):
     reasons = ["max_steps", "early_end", "collision"]
 
     colors = {
@@ -216,13 +203,16 @@ def plot_termination(dqn, ppo):
         "collision": "Collision",
     }
 
-    def get_pcts(data):
+    def get_percentages(data):
         n = data["n_episodes"]
-        tc = data["termination_counts"]
-        return {r: tc.get(r, 0) / n * 100 for r in reasons}
+        termination_counts = data["termination_counts"]
+        return {
+            reason: termination_counts.get(reason, 0) / n * 100
+            for reason in reasons
+        }
 
-    dqn_pcts = get_pcts(dqn)
-    ppo_pcts = get_pcts(ppo)
+    dqn_pcts = get_percentages(dqn)
+    ppo_pcts = get_percentages(ppo)
 
     fig, ax = plt.subplots(figsize=(6, 5))
     fig.patch.set_facecolor(BG_COLOR)
@@ -243,12 +233,12 @@ def plot_termination(dqn, ppo):
             width=0.5,
         )
 
-        for i, (v, b) in enumerate(zip(vals, bottoms)):
-            if v > 3:
+        for i, (value, bottom) in enumerate(zip(vals, bottoms)):
+            if value > 3:
                 ax.text(
                     i,
-                    b + v / 2,
-                    f"{v:.0f}%",
+                    bottom + value / 2,
+                    f"{value:.0f}%",
                     ha="center",
                     va="center",
                     fontsize=10,
@@ -256,23 +246,22 @@ def plot_termination(dqn, ppo):
                     fontweight="bold",
                 )
 
-        bottoms = [b + v for b, v in zip(bottoms, vals)]
+        bottoms = [
+            bottom + value
+            for bottom, value in zip(bottoms, vals)
+        ]
 
-    ax.set_title("C3 — Termination Breakdown", pad=12)
+    ax.set_title(f"{scenario.upper()} — Termination Breakdown", pad=12)
     ax.set_ylabel("Episodes (%)")
     ax.set_ylim(0, 105)
     ax.legend(facecolor=BG_COLOR, edgecolor="#94A3B8", loc="upper right")
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_termination.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
-
-    print(f"Guardado: {path}")
+    save_plot(fig, plots_dir, f"{scenario}_termination.png")
 
 
-def plot_reward(dqn, ppo):
+def plot_reward(dqn, ppo, scenario, scenario_name, plots_dir):
     dqn_rewards = [ep["total_reward"] for ep in dqn["episodes"]]
     ppo_rewards = [ep["total_reward"] for ep in ppo["episodes"]]
 
@@ -286,7 +275,12 @@ def plot_reward(dqn, ppo):
         medianprops=dict(color="#F1F5F9", linewidth=2),
         whiskerprops=dict(color="#94A3B8"),
         capprops=dict(color="#94A3B8"),
-        flierprops=dict(marker="o", color="#94A3B8", alpha=0.5, markersize=4),
+        flierprops=dict(
+            marker="o",
+            color="#94A3B8",
+            alpha=0.5,
+            markersize=4,
+        ),
     )
 
     bp["boxes"][0].set_facecolor(DQN_COLOR)
@@ -294,19 +288,15 @@ def plot_reward(dqn, ppo):
     bp["boxes"][1].set_facecolor(PPO_COLOR)
     bp["boxes"][1].set_alpha(0.75)
 
-    ax.set_title("C3 — Total Reward Distribution", pad=12)
+    ax.set_title(f"{scenario.upper()} — Total Reward Distribution", pad=12)
     ax.set_ylabel("Total reward per episode")
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_reward_dist.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
-
-    print(f"Guardado: {path}")
+    save_plot(fig, plots_dir, f"{scenario}_reward_dist.png")
 
 
-def plot_obstacle_activity(dqn, ppo):
+def plot_obstacle_activity(dqn, ppo, scenario, scenario_name, plots_dir):
     metrics = [
         "Obstacle Active\nSteps",
         "Obstacle Active\nRate (%)",
@@ -359,7 +349,7 @@ def plot_obstacle_activity(dqn, ppo):
             color="#F1F5F9",
         )
 
-    ax.set_title("C3 — Dynamic Obstacle Activity", pad=12)
+    ax.set_title(f"{scenario.upper()} — Dynamic Obstacle Activity", pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(metrics)
     ax.set_ylabel("Value")
@@ -368,14 +358,10 @@ def plot_obstacle_activity(dqn, ppo):
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_obstacle_activity.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
-
-    print(f"Guardado: {path}")
+    save_plot(fig, plots_dir, f"{scenario}_obstacle_activity.png")
 
 
-def plot_stopping_behavior(dqn, ppo):
+def plot_stopping_behavior(dqn, ppo, scenario, scenario_name, plots_dir):
     metrics = [
         "Stopped\nSteps",
         "Stopped\nRate (%)",
@@ -434,7 +420,7 @@ def plot_stopping_behavior(dqn, ppo):
             color="#F1F5F9",
         )
 
-    ax.set_title("C3 — Stopping Behaviour Near Obstacles", pad=12)
+    ax.set_title(f"{scenario.upper()} — Stopping Behaviour", pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(metrics)
     ax.set_ylabel("Value")
@@ -443,26 +429,34 @@ def plot_stopping_behavior(dqn, ppo):
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_stopping_behavior.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
-
-    print(f"Guardado: {path}")
+    save_plot(fig, plots_dir, f"{scenario}_stopping_behavior.png")
 
 
-def plot_c1_static_vs_c3(c1_dqn, c1_ppo, c3_dqn, c3_ppo):
-    labels = ["C1 Static", "C3 Dynamic"]
+def plot_comparison(
+    reference_dqn,
+    reference_ppo,
+    current_dqn,
+    current_ppo,
+    reference_scenario,
+    current_scenario,
+    plots_dir,
+):
+    labels = [
+        reference_scenario.upper(),
+        current_scenario.upper(),
+    ]
+
     x = np.arange(len(labels))
     width = 0.35
 
     dqn_vals = [
-        c1_dqn["success_rate_pct"],
-        c3_dqn["success_rate_pct"],
+        reference_dqn["success_rate_pct"],
+        current_dqn["success_rate_pct"],
     ]
 
     ppo_vals = [
-        c1_ppo["success_rate_pct"],
-        c3_ppo["success_rate_pct"],
+        reference_ppo["success_rate_pct"],
+        current_ppo["success_rate_pct"],
     ]
 
     fig, ax = plt.subplots(figsize=(7, 5))
@@ -497,7 +491,11 @@ def plot_c1_static_vs_c3(c1_dqn, c1_ppo, c3_dqn, c3_ppo):
             color="#F1F5F9",
         )
 
-    ax.set_title("C1 Static vs C3 Dynamic — Dynamic Obstacles Impact", pad=12)
+    ax.set_title(
+        f"{reference_scenario.upper()} vs {current_scenario.upper()} — Success Rate",
+        pad=12,
+    )
+
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.set_ylabel("Task success rate (%)")
@@ -506,17 +504,19 @@ def plot_c1_static_vs_c3(c1_dqn, c1_ppo, c3_dqn, c3_ppo):
     ax.grid(axis="y")
     fig.tight_layout()
 
-    path = os.path.join(PLOTS_DIR, "c3_vs_c1_static_success.png")
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=BG_COLOR)
-    plt.close(fig)
+    save_plot(
+        fig,
+        plots_dir,
+        f"{current_scenario}_vs_{reference_scenario}_success.png",
+    )
 
-    print(f"Guardado: {path}")
 
+def print_table(dqn, ppo, dynamic=False):
+    width = 88 if dynamic else 70
 
-def print_table(dqn, ppo):
-    print(f"\n{'─' * 86}")
+    print(f"\n{'─' * width}")
     print(f"{'Metric':<42} {'DQN':>18} {'PPO':>18}")
-    print(f"{'─' * 86}")
+    print(f"{'─' * width}")
 
     rows = [
         ("Success Rate (%)", dqn["success_rate_pct"], ppo["success_rate_pct"]),
@@ -526,54 +526,175 @@ def print_table(dqn, ppo):
         ("Avg Lap Steps", dqn["avg_lap_steps"] or "N/A", ppo["avg_lap_steps"] or "N/A"),
         ("Avg Reward", dqn["avg_reward"], ppo["avg_reward"]),
         ("Avg Lane Deviation", dqn["avg_lane_deviation"], ppo["avg_lane_deviation"]),
-        ("Avg Obstacle Active Steps", dqn.get("avg_obstacle_active_steps", "N/A"), ppo.get("avg_obstacle_active_steps", "N/A")),
-        ("Avg Obstacle Active Rate (%)", dqn.get("avg_obstacle_active_rate_pct", "N/A"), ppo.get("avg_obstacle_active_rate_pct", "N/A")),
-        ("Avg Stopped Steps", dqn.get("avg_stopped_steps", "N/A"), ppo.get("avg_stopped_steps", "N/A")),
-        ("Avg Stopped Rate (%)", dqn.get("avg_stopped_rate_pct", "N/A"), ppo.get("avg_stopped_rate_pct", "N/A")),
-        ("Avg Stopped When Obstacle", dqn.get("avg_stopped_when_obstacle", "N/A"), ppo.get("avg_stopped_when_obstacle", "N/A")),
-        ("Avg Stop@Obstacle Rate (%)", dqn.get("avg_stopped_when_obstacle_rate_pct", "N/A"), ppo.get("avg_stopped_when_obstacle_rate_pct", "N/A")),
     ]
 
-    for label, dv, pv in rows:
-        print(f"  {label:<40} {str(dv):>18} {str(pv):>18}")
+    if dynamic:
+        rows.extend([
+            ("Avg Obstacle Active Steps", dqn.get("avg_obstacle_active_steps", "N/A"), ppo.get("avg_obstacle_active_steps", "N/A")),
+            ("Avg Obstacle Active Rate (%)", dqn.get("avg_obstacle_active_rate_pct", "N/A"), ppo.get("avg_obstacle_active_rate_pct", "N/A")),
+            ("Avg Stopped Steps", dqn.get("avg_stopped_steps", "N/A"), ppo.get("avg_stopped_steps", "N/A")),
+            ("Avg Stopped Rate (%)", dqn.get("avg_stopped_rate_pct", "N/A"), ppo.get("avg_stopped_rate_pct", "N/A")),
+            ("Avg Stopped When Obstacle", dqn.get("avg_stopped_when_obstacle", "N/A"), ppo.get("avg_stopped_when_obstacle", "N/A")),
+            ("Avg Stop@Obstacle Rate (%)", dqn.get("avg_stopped_when_obstacle_rate_pct", "N/A"), ppo.get("avg_stopped_when_obstacle_rate_pct", "N/A")),
+        ])
 
-    print(f"{'─' * 86}\n")
+    for label, dqn_value, ppo_value in rows:
+        print(f"  {label:<40} {str(dqn_value):>18} {str(ppo_value):>18}")
+
+    print(f"{'─' * width}\n")
 
 
-def print_c1_static_vs_c3_delta(c1_dqn, c1_ppo, c3_dqn, c3_ppo):
-    print("\n=== C1 Static → C3 Dynamic Impact ===")
+def print_comparison_delta(
+    reference_dqn,
+    reference_ppo,
+    current_dqn,
+    current_ppo,
+    reference_scenario,
+    current_scenario,
+):
+    dqn_delta = (
+        current_dqn["success_rate_pct"]
+        - reference_dqn["success_rate_pct"]
+    )
 
-    dqn_delta = c3_dqn["success_rate_pct"] - c1_dqn["success_rate_pct"]
-    ppo_delta = c3_ppo["success_rate_pct"] - c1_ppo["success_rate_pct"]
+    ppo_delta = (
+        current_ppo["success_rate_pct"]
+        - reference_ppo["success_rate_pct"]
+    )
 
+    print(f"\n=== {reference_scenario.upper()} → {current_scenario.upper()} Impact ===")
     print(f"DQN success change: {dqn_delta:+.1f}%")
     print(f"PPO success change: {ppo_delta:+.1f}%")
 
 
+def validate_scenario(scenario):
+    scenario = scenario.lower()
+
+    scenario_config = SCENARIOS[scenario]
+    scenario_name = scenario_config["name"]
+    plots_dir = scenario_config["plots_dir"]
+    dynamic = scenario_config["dynamic"]
+
+    os.makedirs(plots_dir, exist_ok=True)
+
+    dqn_path, ppo_path = get_result_paths(scenario_config)
+
+    if not check_files(dqn_path, ppo_path):
+        return
+
+    dqn = load_json(dqn_path)
+    ppo = load_json(ppo_path)
+
+    print(f"\n=== {scenario.upper()} — {scenario_name} Validation Report ===")
+
+    print_table(
+        dqn=dqn,
+        ppo=ppo,
+        dynamic=dynamic,
+    )
+
+    print("A gerar plots...")
+
+    plot_summary(
+        dqn=dqn,
+        ppo=ppo,
+        scenario=scenario,
+        scenario_name=scenario_name,
+        plots_dir=plots_dir,
+    )
+
+    plot_lane_deviation(
+        dqn=dqn,
+        ppo=ppo,
+        scenario=scenario,
+        scenario_name=scenario_name,
+        plots_dir=plots_dir,
+    )
+
+    plot_termination(
+        dqn=dqn,
+        ppo=ppo,
+        scenario=scenario,
+        scenario_name=scenario_name,
+        plots_dir=plots_dir,
+    )
+
+    plot_reward(
+        dqn=dqn,
+        ppo=ppo,
+        scenario=scenario,
+        scenario_name=scenario_name,
+        plots_dir=plots_dir,
+    )
+
+    if dynamic:
+        plot_obstacle_activity(
+            dqn=dqn,
+            ppo=ppo,
+            scenario=scenario,
+            scenario_name=scenario_name,
+            plots_dir=plots_dir,
+        )
+
+        plot_stopping_behavior(
+            dqn=dqn,
+            ppo=ppo,
+            scenario=scenario,
+            scenario_name=scenario_name,
+            plots_dir=plots_dir,
+        )
+
+    comparison_scenario = scenario_config["compare_with"]
+
+    if comparison_scenario is not None:
+        comparison_config = SCENARIOS[comparison_scenario]
+        comparison_dqn_path, comparison_ppo_path = get_result_paths(
+            comparison_config
+        )
+
+        if os.path.exists(comparison_dqn_path) and os.path.exists(comparison_ppo_path):
+            comparison_dqn = load_json(comparison_dqn_path)
+            comparison_ppo = load_json(comparison_ppo_path)
+
+            print_comparison_delta(
+                reference_dqn=comparison_dqn,
+                reference_ppo=comparison_ppo,
+                current_dqn=dqn,
+                current_ppo=ppo,
+                reference_scenario=comparison_scenario,
+                current_scenario=scenario,
+            )
+
+            plot_comparison(
+                reference_dqn=comparison_dqn,
+                reference_ppo=comparison_ppo,
+                current_dqn=dqn,
+                current_ppo=ppo,
+                reference_scenario=comparison_scenario,
+                current_scenario=scenario,
+                plots_dir=plots_dir,
+            )
+        else:
+            print(
+                f"\nFicheiros de comparação com {comparison_scenario.upper()} "
+                "não encontrados. Comparação ignorada."
+            )
+
+    print(f"\nTodos os plots guardados em {plots_dir}/")
+
+
 if __name__ == "__main__":
-    if not check_files():
-        exit(1)
+    parser = argparse.ArgumentParser(
+        description="Unified validation script for all evaluation scenarios."
+    )
 
-    dqn = load(DQN_PATH)
-    ppo = load(PPO_PATH)
+    parser.add_argument(
+        "--scenario",
+        required=True,
+        choices=list(SCENARIOS.keys()),
+        help="Scenario to validate: c1, c2, c3, c4, c5 or c6.",
+    )
 
-    print("\n=== C3 Dynamic Obstacles — Validation Report ===")
-    print_table(dqn, ppo)
+    args = parser.parse_args()
 
-    print("A gerar plots C3...")
-    plot_summary(dqn, ppo)
-    plot_lane_deviation(dqn, ppo)
-    plot_termination(dqn, ppo)
-    plot_reward(dqn, ppo)
-    plot_obstacle_activity(dqn, ppo)
-    plot_stopping_behavior(dqn, ppo)
-
-    if has_c1_static_files():
-        c1_dqn = load(C1_DQN_PATH)
-        c1_ppo = load(C1_PPO_PATH)
-        print_c1_static_vs_c3_delta(c1_dqn, c1_ppo, dqn, ppo)
-        plot_c1_static_vs_c3(c1_dqn, c1_ppo, dqn, ppo)
-    else:
-        print("\nFicheiros C1 Static não encontrados. A comparação C1 Static vs C3 foi ignorada.")
-
-    print(f"\nTodos os plots guardados em {PLOTS_DIR}/")
+    validate_scenario(args.scenario)
