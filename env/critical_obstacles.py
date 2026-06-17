@@ -7,6 +7,15 @@ class CriticalObstacleManager:
 
     Supports pedestrians and vehicles that start from their current position
     in the Webots world and move when the ego vehicle enters a 2D trigger radius.
+
+    ALTERAÇÕES vs original:
+    - Peão: speed 0.01 → 0.05 (5x mais rápido).
+      Com speed=0.01 o peão demora 2000 steps a atravessar (20m / 0.01).
+      Com speed=0.05 demora 400 steps — mais realista e o agente tem sinal
+      claro de "peão a atravessar" sem precisar de estar parado 2000 steps.
+    - Carro: speed 0.15 → 0.20 (ligeiramente mais rápido, mais visível).
+    - trigger_distance do peão: 25.0 → 20.0 para o agente ver o peão
+      no LiDAR antes do trigger (OBSTACLE_NEAR_DISTANCE=10.0 não chegava).
     """
 
     def __init__(self, supervisor, vehicle_translation_field):
@@ -17,10 +26,10 @@ class CriticalObstacleManager:
             {
                 "def_name": "PEDESTRIAN_1",
                 "label": "Pedestre",
-                "trigger_distance": 25.0,
+                "trigger_distance": 20.0,   # reduzido de 25→20: trigger mais perto
                 "move_direction": [0.0, 1.0, 0.0],
                 "move_distance": 20.0,
-                "speed": 0.01,
+                "speed": 0.05,              # aumentado de 0.01→0.05: 400 steps em vez de 2000
                 "active": False,
                 "completed": False,
             },
@@ -30,7 +39,7 @@ class CriticalObstacleManager:
                 "trigger_distance": 30.0,
                 "move_direction": [1.0, 0.0, 0.0],
                 "move_distance": 30.0,
-                "speed": 0.15,
+                "speed": 0.20,              # ligeiramente aumentado de 0.15→0.20
                 "active": False,
                 "completed": False,
             },
@@ -72,8 +81,10 @@ class CriticalObstacleManager:
             self.obstacles.append(obstacle)
 
             print(f"Obstáculo carregado: {scenario['label']} ({scenario['def_name']})")
-            print(f"Posição inicial: {obstacle['start']}")
-            print(f"Posição final: {obstacle['end']}")
+            print(f"  Posição inicial: {obstacle['start']}")
+            print(f"  Posição final:   {obstacle['end']}")
+            print(f"  Speed:           {scenario['speed']} u/step")
+            print(f"  Steps estimados: {int(scenario['move_distance'] / scenario['speed'])}")
 
     def reset(self):
         for obstacle in self.obstacles:
@@ -100,7 +111,7 @@ class CriticalObstacleManager:
                 not obstacle["active"]
                 and distance_to_obstacle <= obstacle["trigger_distance"]
             ):
-                print(f"{obstacle['label']} ativado!")
+                print(f"{obstacle['label']} ativado! Distância ao ego: {distance_to_obstacle:.1f}m")
                 obstacle["active"] = True
 
             if obstacle["active"]:
@@ -113,7 +124,6 @@ class CriticalObstacleManager:
         )
 
         end_position = obstacle["end"]
-
         direction = end_position - current_position
         distance = np.linalg.norm(direction)
 
@@ -127,7 +137,6 @@ class CriticalObstacleManager:
 
         direction = direction / (distance + 1e-8)
         new_position = current_position + direction * obstacle["speed"]
-
         obstacle["translation_field"].setSFVec3f(new_position.tolist())
 
     def is_any_obstacle_active(self):
