@@ -1,4 +1,4 @@
-import os 
+import os
 
 from webots_setup import setup_webots_path
 setup_webots_path()
@@ -10,15 +10,17 @@ from gymnasium.wrappers import TimeLimit
 from env.webots_env import WebotsVehicleEnv
 from env.lidar_noise_wrapper import LiDARNoiseWrapper
 
-# ─── Configurações de Treino ───────────────────────────────────────────────────
+
+# Training Configurations
 TOTAL_TIMESTEPS = 800_000
 
-# Parâmetros de ruído (mesmos descritos no proposal)
-NOISE_STD       = 0.1   # desvio padrão do ruído Gaussiano
-DROPOUT_PROB    = 0.1   # probabilidade de dropout por raio LiDAR
-LIDAR_MAX_RANGE = 100.0 # alcance máximo do sensor (metros)
+# Noise parameters
+NOISE_STD       = 0.1   # Standard deviation of Gaussian noise
+DROPOUT_PROB    = 0.1   # Dropout probability per LiDAR ray
+LIDAR_MAX_RANGE = 100.0 # Maximum sensor range (meters)
 
-# ─── Diretórios ────────────────────────────────────────────────────────────────
+
+# Directories
 LOG_DIR        = "./logs/ppo_noise/"
 SAVE_DIR       = "./models/ppo_noise/"
 BEST_MODEL_DIR = "./models/ppo_noise/ppo_noise_best/"
@@ -28,11 +30,11 @@ os.makedirs(LOG_DIR,        exist_ok=True)
 os.makedirs(SAVE_DIR,       exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
-# ─── Ambiente ─────────────────────────────────────────────────────────────────
-# Ambiente base (cidade com obstáculos estáticos, sem obstáculos dinâmicos)
+
+# Environment
 base_env = WebotsVehicleEnv()
 
-# Wrapper de ruído LiDAR — simula degradação do sensor (C2)
+# LiDAR noise wrapper 
 env = LiDARNoiseWrapper(
     base_env,
     noise_std=NOISE_STD,
@@ -40,23 +42,24 @@ env = LiDARNoiseWrapper(
     lidar_max_range=LIDAR_MAX_RANGE,
 )
 
-# Limite de passos por episódio (igual ao baseline C1)
+# Step limit per episode 
 env = TimeLimit(env, max_episode_steps=5000)
 
-# ─── Carregar modelo existente ou criar novo ───────────────────────────────────
+
+# Load existing model or create a new one
 model_zip_path = FINAL_MODEL_PATH + ".zip"
 
 if os.path.exists(model_zip_path):
-    print(f"A carregar modelo PPO-Noise existente: {model_zip_path}")
+    print(f"Loading existing PPO-Noise model: {model_zip_path}")
     model = PPO.load(
         FINAL_MODEL_PATH,
         env=env,
         tensorboard_log=LOG_DIR,
         verbose=1,
     )
-    print("Modelo carregado. O treino continua a partir do estado anterior.")
+    print("Model loaded. Training continues from the previous state.")
 else:
-    print("Nenhum modelo existente encontrado. A criar novo modelo PPO-Noise...")
+    print("No existing model found. Creating new PPO-Noise model...")
     model = PPO(
         policy="MultiInputPolicy",
         env=env,
@@ -72,7 +75,8 @@ else:
         tensorboard_log=LOG_DIR,
     )
 
-# ─── Callbacks ────────────────────────────────────────────────────────────────
+
+# Callbacks
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
@@ -89,8 +93,9 @@ eval_callback = EvalCallback(
     render=False,
 )
 
-# ─── Treino ───────────────────────────────────────────────────────────────────
-print("A iniciar/continuar treino PPO com ruído LiDAR (C2)...")
+
+# Training
+print("Starting/continuing PPO training with LiDAR noise (C2)...")
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
     callback=CallbackList([checkpoint_callback, eval_callback]),
@@ -99,4 +104,4 @@ model.learn(
 )
 
 model.save(FINAL_MODEL_PATH)
-print(f"Treino concluído. Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
+print(f"Training completed. Final model saved at: {FINAL_MODEL_PATH}.zip")
