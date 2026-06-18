@@ -40,6 +40,7 @@ from collections import Counter
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
+from webots_setup import setup_webots_path
 
 import configs.env_config as cfg
 from configs.evaluation_config import (
@@ -50,37 +51,6 @@ from configs.evaluation_config import (
     RESULTS_DIR,
     SCENARIOS,
 )
-
-
-def setup_webots_path():
-    if platform.system() == "Windows":
-        webots_home = r"C:\Users\rodri\AppData\Local\Programs\Webots"
-    elif platform.system() == "Darwin":
-        webots_home = "/Applications/Webots.app"
-    else:
-        webots_home = "/usr/local/webots"
-
-    os.environ["WEBOTS_HOME"] = webots_home
-
-    webots_python_path = os.path.join(
-        webots_home,
-        "lib",
-        "controller",
-        "python",
-    )
-
-    webots_controller_path = os.path.join(
-        webots_home,
-        "lib",
-        "controller",
-    )
-
-    if webots_python_path not in sys.path:
-        sys.path.insert(0, webots_python_path)
-
-    if platform.system() == "Windows":
-        os.environ["PATH"] = webots_controller_path + os.pathsep + os.environ["PATH"]
-
 
 
 class LegacyCriticalObsWrapper(gym.ObservationWrapper):
