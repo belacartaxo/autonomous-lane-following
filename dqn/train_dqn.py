@@ -15,8 +15,10 @@ from env.webots_env import WebotsVehicleEnv
 from env.discrete_action_wrapper import DiscreteActionWrapper
 
 
+# Training configurations
 TOTAL_TIMESTEPS = 1_600_000
 
+# Directories
 LOG_DIR = "./logs/dqn_baseline/"
 SAVE_DIR = "./models/dqn_baseline/"
 BEST_MODEL_DIR = "./models/dqn_baseline/dqn_best/"
@@ -29,6 +31,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 
+# Environment setup
 def make_env():
     base_env = WebotsVehicleEnv()
     wrapped_env = DiscreteActionWrapper(base_env)
@@ -36,6 +39,7 @@ def make_env():
     return wrapped_env
 
 
+# Custom callback to save the replay buffer periodically
 class LatestReplayBufferCallback(BaseCallback):
     def __init__(self, save_freq, save_path, verbose=1):
         super().__init__(verbose)
@@ -54,10 +58,11 @@ class LatestReplayBufferCallback(BaseCallback):
 
 env = make_env()
 
+# Load existing model or create a new one
 model_zip_path = FINAL_MODEL_PATH + ".zip"
 
 if os.path.exists(model_zip_path):
-    print(f"A carregar modelo DQN existente: {model_zip_path}")
+    print(f"Loading existing DQN model: {model_zip_path}")
 
     model = DQN.load(
         FINAL_MODEL_PATH,
@@ -67,13 +72,13 @@ if os.path.exists(model_zip_path):
     )
 
     if os.path.exists(LATEST_REPLAY_BUFFER_PATH):
-        print(f"A carregar replay buffer existente: {LATEST_REPLAY_BUFFER_PATH}")
+        print(f"Loading existing replay buffer: {LATEST_REPLAY_BUFFER_PATH}")
         model.load_replay_buffer(LATEST_REPLAY_BUFFER_PATH)
 
-    print("Modelo carregado. O treino continua a partir do estado anterior.")
+    print("Model loaded. Training continues from the previous state.")
 
 else:
-    print("Nenhum modelo existente encontrado. A criar novo modelo DQN...")
+    print("No existing model found. Creating new DQN model...")
 
     model = DQN(
         policy="MultiInputPolicy",
@@ -93,6 +98,7 @@ else:
     )
 
 
+# Callbacks
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
@@ -117,7 +123,8 @@ eval_callback = EvalCallback(
     render=False,
 )
 
-print("A iniciar/continuar treino DQN...")
+# Training execution
+print("Starting/continuing DQN training...")
 
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
@@ -130,11 +137,12 @@ model.learn(
     reset_num_timesteps=False,
 )
 
+# Save final model and buffers
 model.save(FINAL_MODEL_PATH)
 model.save_replay_buffer(LATEST_REPLAY_BUFFER_PATH)
 
-print(f"Treino concluído. Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
-print(f"Replay buffer mais recente guardado em: {LATEST_REPLAY_BUFFER_PATH}")
-print(f"Melhor modelo guardado em: {os.path.join(BEST_MODEL_DIR, 'best_model.zip')}")
+print(f"Training completed. Final model saved at: {FINAL_MODEL_PATH}.zip")
+print(f"Latest replay buffer saved at: {LATEST_REPLAY_BUFFER_PATH}")
+print(f"Best model saved at: {os.path.join(BEST_MODEL_DIR, 'best_model.zip')}")
 
 env.close()
