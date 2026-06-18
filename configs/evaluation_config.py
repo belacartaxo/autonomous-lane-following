@@ -61,7 +61,7 @@ SCENARIOS = {
         "has_dynamic_obstacles": True,
         "result_prefix": "c5",
         "models": {
-            "ppo": f"models/ppo_dynamic/ppo_dynamic_best/best_model.zip",
+            "ppo": f"{MODELS_DIR}/c5_ppo_dynamic_best.zip",
             "dqn": f"{MODELS_DIR}/c5_dqn_dynamic_best.zip",
         },
     },
