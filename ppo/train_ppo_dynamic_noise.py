@@ -1,30 +1,6 @@
 import os
-import sys
-import platform
-
-# ─── Webots path ───────────────────────────────────────────────────────────────
-if platform.system() == "Windows":
-    WEBOTS_HOME = r"C:\Program Files\Webots"
-    WEBOTS_PYTHON_PATH = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
-
-elif platform.system() == "Darwin":  # macOS
-    WEBOTS_HOME = "/Applications/Webots.app"
-    WEBOTS_PYTHON_PATH = os.path.join(
-        WEBOTS_HOME,
-        "Contents",
-        "lib",
-        "controller",
-        "python"
-    )
-
-else:  # Linux
-    WEBOTS_HOME = "/usr/local/webots"
-    WEBOTS_PYTHON_PATH = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
-
-os.environ["WEBOTS_HOME"] = WEBOTS_HOME
-
-if WEBOTS_PYTHON_PATH not in sys.path:
-    sys.path.insert(0, WEBOTS_PYTHON_PATH)
+from webots_setup import setup_webots_path
+setup_webots_path()
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
