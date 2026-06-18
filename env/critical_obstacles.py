@@ -16,7 +16,7 @@ class CriticalObstacleManager:
         self.scenarios = [
             {
                 "def_name": "PEDESTRIAN_1",
-                "label": "Pedestre",
+                "label": "Pedestrian",
                 "trigger_distance": 25.0,
                 "move_direction": [0.0, 1.0, 0.0],
                 "move_distance": 20.0,
@@ -26,7 +26,7 @@ class CriticalObstacleManager:
             },
             {
                 "def_name": "VEHICLE_1",
-                "label": "Automóvel",
+                "label": "Vehicle",
                 "trigger_distance": 30.0,
                 "move_direction": [1.0, 0.0, 0.0],
                 "move_distance": 30.0,
@@ -44,7 +44,7 @@ class CriticalObstacleManager:
             node = self.supervisor.getFromDef(scenario["def_name"])
 
             if node is None:
-                print(f"Aviso: obstáculo não encontrado e será ignorado: {scenario['def_name']}")
+                print(f"Warning: Obstacle not found and will be ignored: {scenario['def_name']}")
                 continue
 
             translation_field = node.getField("translation")
@@ -71,9 +71,9 @@ class CriticalObstacleManager:
 
             self.obstacles.append(obstacle)
 
-            print(f"Obstáculo carregado: {scenario['label']} ({scenario['def_name']})")
-            print(f"Posição inicial: {obstacle['start']}")
-            print(f"Posição final: {obstacle['end']}")
+            print(f"Obstacle loaded: {scenario['label']} ({scenario['def_name']})")
+            print(f"Start position: {obstacle['start']}")
+            print(f"End position: {obstacle['end']}")
 
     def reset(self):
         for obstacle in self.obstacles:
@@ -100,7 +100,7 @@ class CriticalObstacleManager:
                 not obstacle["active"]
                 and distance_to_obstacle <= obstacle["trigger_distance"]
             ):
-                print(f"{obstacle['label']} ativado!")
+                print(f"{obstacle['label']} activated!")
                 obstacle["active"] = True
 
             if obstacle["active"]:
@@ -122,7 +122,7 @@ class CriticalObstacleManager:
             obstacle["node"].resetPhysics()
             obstacle["active"] = False
             obstacle["completed"] = True
-            print(f"{obstacle['label']} terminou o movimento.")
+            print(f"{obstacle['label']} finished moving.")
             return
 
         direction = direction / (distance + 1e-8)
