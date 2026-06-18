@@ -13,7 +13,7 @@ from env.discrete_action_wrapper import DiscreteActionWrapper
 from env.lidar_noise_wrapper import LiDARNoiseWrapper
 
 # ─── Configurações de treino ──────────────────────────────────────────────────
-TOTAL_TIMESTEPS = 1_000_000  # Podes ajustar conforme necessário
+TOTAL_TIMESTEPS = 1_600_000  # Podes ajustar conforme necessário
 
 # ─── Diretórios ────────────────────────────────────────────────────────────────
 # Novos diretórios exclusivos para o treino DQN com ruído
