@@ -1,5 +1,7 @@
 import numpy as np
 from gymnasium import spaces
+from webots_setup import setup_webots_path 
+setup_webots_path()
 
 import configs.env_config as cfg
 
