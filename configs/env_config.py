@@ -66,8 +66,7 @@ STUCK_DONE_PENALTY = 1.0
 COLLISION_PENALTY = 1.0
 
 
-# Lane following steering
-# Lane steering rewards
+# Lane following steering rewards
 LANE_STEERING_REWARD = 0.20
 LANE_WRONG_STEERING_PENALTY = 0.30
 LANE_LOW_STEERING_PENALTY = 0.20
@@ -77,15 +76,13 @@ LANE_HIGH_ERROR_SPEED_PENALTY = 0.20
 RECOVERY_CENTER_WEIGHT = 0.40
 
 # Critical dynamic obstacle
-
 CRITICAL_MAX_NOT_STOPPED_STEPS = 250
 
 CRITICAL_FULL_STOP_SPEED_THRESHOLD = 0.005
 CRITICAL_FORWARD_THROTTLE_THRESHOLD = 0.05
 
-# [ALTERADO] Reduzido de 0.45 → 0.30 para não criar associação tão forte com paragem
+# Critical stop rewards and penalties
 CRITICAL_STOP_REWARD = 0.30
-# [ALTERADO] Reduzido de 0.25 → 0.20
 CRITICAL_NOT_STOPPED_PENALTY = 0.20
 CRITICAL_FORWARD_PENALTY_WEIGHT = 0.35
 
@@ -97,25 +94,25 @@ CRITICAL_UNNECESSARY_STOP_PENALTY = 0.20
 CRITICAL_FAILED_TO_STOP_PENALTY = 1.0
 CRITICAL_COLLISION_PENALTY = 1.0
 
-# [ALTERADO] Todos os valores de inatividade aumentados significativamente
-# para forçar o agente a retomar depois do obstáculo passar
+# Inactivity penalties and rewards
+# Tuned to force the agent to resume movement after the obstacle clears
 
-# Movimento mínimo esperado por step quando não há obstáculo
+# Minimum expected movement per step when there is no obstacle
 CRITICAL_INACTIVE_MIN_MOVEMENT = 0.015
 
-# [ALTERADO] 0.25 → 0.60: penalização forte se não se mover
+# Strong penalty for not moving
 CRITICAL_INACTIVE_LOW_MOVEMENT_PENALTY = 0.60
 
-# [ALTERADO] 0.15 → 0.40: penalização forte se não der throttle
+# Strong penalty for not applying throttle
 CRITICAL_INACTIVE_NO_THROTTLE_PENALTY = 0.40
 
-# [ALTERADO] 0.12 → 0.35: bónus maior por throttle positivo
+# Bonus for positive throttle
 CRITICAL_INACTIVE_FORWARD_BONUS_WEIGHT = 0.35
 
-# [ALTERADO] 0.20 → 0.45: penalização maior por andar para trás desnecessariamente
+# Penalty for unnecessary reverse movement
 CRITICAL_INACTIVE_REVERSE_PENALTY_WEIGHT = 0.45
 
-# [NOVO] Bónus único de retoma quando o obstáculo acaba de desaparecer
+# One-time resume bonus when the obstacle disappears
 CRITICAL_RESUME_BONUS = 0.80
 
 CRITICAL_ACTIVE_FORWARD_PENALTY_BASE = 0.35
