@@ -1,0 +1,365 @@
+Autonomous Lane Following Reinforcement Learning Project
+=======================================================
+
+1. Compatible operating systems
+-------------------------------
+This project is compatible with:
+
+- Windows 10
+- Ubuntu Linux 20.04.6 LTS (Focal Fossa)
+
+
+
+All commands must be executed from the root folder of the project.
+
+The project was developed using Webots and Python. Webots must be opened
+manually before running the training or evaluation scripts.
+
+
+2. External software dependencies
+---------------------------------
+Install Webots before running the project.
+
+Recommended Webots installation paths:
+
+Windows 10:
+    C:\Program Files\Webots
+
+Windows 10, user-local installation:
+    C:\Users\<USERNAME>\AppData\Local\Programs\Webots
+
+Ubuntu Linux 20.04.6 LTS:
+    /usr/local/webots
+
+The project uses the WEBOTS_HOME environment variable to locate the Webots
+installation. The file webots_setup.py first checks WEBOTS_HOME. If WEBOTS_HOME
+is not defined, it tries common Webots installation paths for Windows and Linux.
+
+If Webots is installed in a non-standard folder, define WEBOTS_HOME manually
+before running Python scripts.
+
+Windows CMD example:
+    set WEBOTS_HOME=C:\Program Files\Webots
+
+Windows CMD example for a user-local installation:
+    set WEBOTS_HOME=C:\Users\<USERNAME>\AppData\Local\Programs\Webots
+
+Linux terminal example:
+    export WEBOTS_HOME=/usr/local/webots
+
+
+3. Python dependencies
+----------------------
+Python 3.10 is recommended. Python 3.8+ should also work if the listed
+dependencies are compatible with the local environment.
+
+The required Python modules are listed in requirements.txt. The main required
+modules are:
+
+- gymnasium
+- numpy
+- stable-baselines3
+- tensorboard
+- tqdm
+- rich
+- matplotlib
+
+Create and activate a virtual environment before installing the dependencies.
+
+Windows CMD:
+    python -m venv venv
+    venv\Scripts\activate
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+Linux terminal:
+    python3 -m venv venv
+    source venv/bin/activate
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+
+4. Webots setup before running Python scripts
+---------------------------------------------
+Before running any training or evaluation script:
+
+1. Open Webots manually.
+2. Open the correct world file for the scenario.
+3. Keep Webots running.
+4. Run the Python command from the project root folder.
+
+The required world files are:
+
+C1 and C2:
+    worlds/city_default.wbt
+
+C3 and C4:
+    worlds/city_static_obstacles.wbt
+
+C5 and C6:
+    worlds/city_dynamic_obstacles.wbt
+
+The Python scripts connect to the vehicle using the Webots external controller
+interface. The scripts do not automatically open the .wbt world file, so the
+correct world must be opened manually before running the Python command.
+
+If necessary, set the Webots Python controller path manually.
+
+Windows CMD:
+    set WEBOTS_HOME=C:\Program Files\Webots
+    set PYTHONPATH=%cd%;%WEBOTS_HOME%\lib\controller\python
+    set PATH=%WEBOTS_HOME%\lib\controller;%PATH%
+
+Linux terminal:
+    export WEBOTS_HOME=/usr/local/webots
+    export PYTHONPATH=$PWD:$WEBOTS_HOME/lib/controller/python
+    export LD_LIBRARY_PATH=$WEBOTS_HOME/lib/controller:$LD_LIBRARY_PATH
+
+If Webots is installed in another folder, replace the WEBOTS_HOME path with the
+actual installation path.
+
+To test whether the Webots Python controller is correctly available, run:
+
+Windows:
+    python -c "from controller import Supervisor; print('Webots controller OK')"
+
+Linux:
+    python3 -c "from controller import Supervisor; print('Webots controller OK')"
+
+If this command prints "Webots controller OK", the Python/Webots connection is
+configured correctly.
+
+
+5. Evaluating trained models
+----------------------------
+The evaluation script is:
+
+    evaluate.py
+
+It reads the model paths from:
+
+    configs/evaluation_config.py
+
+and saves JSON results to:
+
+    results/
+
+Before each evaluation, open the correct Webots world as described in Section 4.
+
+General command format:
+    python evaluate.py --algo <ppo|dqn> --scenario <c1|c2|c3|c4|c5|c6>
+
+Scenario descriptions:
+
+- C1: clean lane following
+- C2: lane following with LiDAR noise
+- C3: static obstacles
+- C4: static obstacles with LiDAR noise
+- C5: critical dynamic obstacles
+- C6: critical dynamic obstacles with LiDAR noise
+
+Evaluation commands:
+
+C1:
+    python evaluate.py --algo ppo --scenario c1
+    python evaluate.py --algo dqn --scenario c1
+
+C2:
+    python evaluate.py --algo ppo --scenario c2
+    python evaluate.py --algo dqn --scenario c2
+
+C3:
+    python evaluate.py --algo ppo --scenario c3
+    python evaluate.py --algo dqn --scenario c3
+
+C4:
+    python evaluate.py --algo ppo --scenario c4
+    python evaluate.py --algo dqn --scenario c4
+
+C5:
+    python evaluate.py --algo ppo --scenario c5
+    python evaluate.py --algo dqn --scenario c5
+
+C6:
+    python evaluate.py --algo ppo --scenario c6
+    python evaluate.py --algo dqn --scenario c6
+
+Manual model path examples:
+
+C5 PPO:
+    python evaluate.py --algo ppo --scenario c5 --model best_models\c5_ppo_dynamic_best
+
+C6 PPO:
+    python evaluate.py --algo ppo --scenario c6 --model best_models\c6_ppo_dynamic_noise_best
+
+C5 DQN:
+    python evaluate.py --algo dqn --scenario c5 --model best_models\c5_dqn_dynamic_best
+
+C6 DQN:
+    python evaluate.py --algo dqn --scenario c6 --model best_models\c6_dqn_dynamic_noise_best
+
+
+
+6. Expected trained model files
+-------------------------------
+The evaluation configuration expects the following best model files:
+
+C1:
+    best_models/c1_ppo_default_best.zip
+    best_models/c1_dqn_default_best.zip
+
+C2:
+    best_models/c2_ppo_default_noise_best.zip
+    best_models/c2_dqn_default_noise_best.zip
+
+C3:
+    best_models/c3_ppo_static_best.zip
+    best_models/c3_dqn_static_best.zip
+
+C4:
+    best_models/c4_ppo_static_noise_best.zip
+    best_models/c4_dqn_static_noise_best.zip
+
+C5:
+    best_models/c5_ppo_dynamic_best.zip
+    best_models/c5_dqn_dynamic_best.zip
+
+C6:
+    best_models/c6_ppo_dynamic_noise_best.zip
+    best_models/c6_dqn_dynamic_noise_best.zip
+
+
+
+7. Generating validation tables and plots
+-----------------------------------------
+After evaluation JSON files have been created in results/, run validate.py.
+
+General command format:
+    python validate.py --scenario <c1|c2|c3|c4|c5|c6>
+
+Examples:
+    python validate.py --scenario c1
+    python validate.py --scenario c2
+    python validate.py --scenario c3
+    python validate.py --scenario c4
+    python validate.py --scenario c5
+    python validate.py --scenario c6
+
+If only one algorithm has been evaluated for a scenario, use --algo:
+
+    python validate.py --scenario c5 --algo ppo
+    python validate.py --scenario c5 --algo dqn
+    python validate.py --scenario c6 --algo ppo
+    python validate.py --scenario c6 --algo dqn
+
+The validation script prints summary tables in the terminal and generates plots.
+Plots are saved in the folders defined in:
+
+    configs/validation_config.py
+
+
+8. Training models from scratch or continuing training
+------------------------------------------------------
+Training scripts are provided in the ppo/ and dqn/ folders.
+
+All training scripts must be executed from the project root folder using
+python -m.
+
+Important:
+    The same training script can be used for different scenarios depending on
+    which Webots world is currently open.
+
+    For example:
+        - train_ppo.py with city_default.wbt corresponds to C1.
+        - train_ppo.py with city_static_obstacles.wbt corresponds to C3.
+        - train_ppo_noise.py with city_default.wbt corresponds to C2.
+        - train_ppo_noise.py with city_static_obstacles.wbt corresponds to C4.
+
+C1 baseline, clean lane following:
+    Open worlds/city_default.wbt in Webots.
+    Then run:
+        python -m ppo.train_ppo
+        python -m dqn.train_dqn
+
+C2 lane following with LiDAR noise:
+    Open worlds/city_default.wbt in Webots.
+    Then run:
+        python -m ppo.train_ppo_noise
+        python -m dqn.train_dqn_noise
+
+C3 static obstacles:
+    Open worlds/city_static_obstacles.wbt in Webots.
+    Then run:
+        python -m ppo.train_ppo
+        python -m dqn.train_dqn
+
+C4 static obstacles with LiDAR noise:
+    Open worlds/city_static_obstacles.wbt in Webots.
+    Then run:
+        python -m ppo.train_ppo_noise
+        python -m dqn.train_dqn_noise
+
+C5 critical dynamic obstacles:
+    Open worlds/city_dynamic_obstacles.wbt in Webots.
+    Then run:
+        python -m ppo.train_ppo_dynamic
+        python -m dqn.train_dqn_dynamic
+
+C6 critical dynamic obstacles with LiDAR noise:
+    Open worlds/city_dynamic_obstacles.wbt in Webots.
+    Then run:
+        python -m ppo.train_ppo_dynamic_noise
+        python -m dqn.train_dqn_dynamic_noise
+
+Each training script saves checkpoints and final models under logs/ and models/.
+The selected best models can then be copied to best_models/ and referenced in
+configs/evaluation_config.py.
+
+
+9. Output files
+---------------
+Evaluation outputs:
+    results/<scenario>_<algo>.json
+
+Examples:
+    results/c1_ppo.json
+    results/c1_dqn.json
+    results/c5_ppo.json
+    results/c6_ppo.json
+
+Validation plots:
+    results/plots_c1/
+    results/plots_c2/
+    results/plots_c3/
+    results/plots_c4/
+    results/plots_c5/
+    results/plots_c6/
+
+Training logs and checkpoints:
+    logs/
+    models/
+
+
+10. Troubleshooting
+-------------------
+If Python cannot import the Webots controller module:
+
+    ModuleNotFoundError: No module named 'controller'
+
+check that Webots is installed, WEBOTS_HOME is set correctly, and the Webots
+controller Python path is included in PYTHONPATH.
+
+If evaluate.py cannot find a trained model, check whether the expected model
+exists in best_models/. The expected file names are listed in Section 6 and in
+configs/evaluation_config.py.
+
+If the script starts but the wrong scenario seems to be running, check whether
+the correct Webots world is open. The Python scripts do not automatically open
+the world file; the user must open the correct .wbt file manually before running
+the script.
+
+
+If using Windows and Webots is installed in a user-local folder, set WEBOTS_HOME
+accordingly, for example:
+
+    set WEBOTS_HOME=C:\Users\<USERNAME>\AppData\Local\Programs\Webots
