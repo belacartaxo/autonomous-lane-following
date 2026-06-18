@@ -1,7 +1,21 @@
 """
-Cenários disponíveis: c1-c6
-python validate.py --scenario c1
+Unified validation script for C1-C6 evaluation results.
+
+Usage:
+    python validate_updated.py --scenario c5
+    python validate_updated.py --scenario c5 --algo ppo
+    python validate_updated.py --scenario c5 --algo dqn
+
+This version is compatible with the updated dynamic-obstacle metrics produced by
+`evaluate_updated.py`, including:
+    - stop_success_rate_pct
+    - resume_success_rate_pct
+    - avg_physically_stopped_when_obstacle_rate_pct
+    - avg_stopped_when_obstacle_action_based_rate_pct
+
+It also keeps backward-compatible fallbacks for older JSON files.
 """
+
 import argparse
 import json
 import os
@@ -42,27 +56,62 @@ def load_json(path):
         return json.load(file)
 
 
-def get_result_paths(scenario_config):
-    dqn_path = os.path.join(RESULTS_DIR, scenario_config["dqn_file"])
-    ppo_path = os.path.join(RESULTS_DIR, scenario_config["ppo_file"])
+def metric(data, *keys, default=0):
+    """Return the first available metric from a list of possible key names."""
+    if data is None:
+        return default
+
+    for key in keys:
+        if key in data and data[key] is not None:
+            return data[key]
+
+    return default
+
+
+def get_result_paths(scenario, scenario_config):
+    """Return expected result paths for DQN and PPO.
+
+    Supports both validation_config styles:
+      1. Explicit filenames: dqn_file / ppo_file
+      2. Prefix-based filenames: result_prefix or scenario name
+    """
+    if "dqn_file" in scenario_config and "ppo_file" in scenario_config:
+        dqn_file = scenario_config["dqn_file"]
+        ppo_file = scenario_config["ppo_file"]
+    else:
+        prefix = scenario_config.get("result_prefix", scenario)
+        dqn_file = f"{prefix}_dqn.json"
+        ppo_file = f"{prefix}_ppo.json"
+
+    dqn_path = os.path.join(RESULTS_DIR, dqn_file)
+    ppo_path = os.path.join(RESULTS_DIR, ppo_file)
+
     return dqn_path, ppo_path
 
 
-def check_files(dqn_path, ppo_path):
-    missing = []
+def load_available_results(scenario, scenario_config, algo):
+    dqn_path, ppo_path = get_result_paths(scenario, scenario_config)
 
-    if not os.path.exists(dqn_path):
-        missing.append(dqn_path)
+    dqn = None
+    ppo = None
 
-    if not os.path.exists(ppo_path):
-        missing.append(ppo_path)
+    if algo in ["both", "dqn"]:
+        if os.path.exists(dqn_path):
+            dqn = load_json(dqn_path)
+        else:
+            print(f"\nFicheiro DQN em falta: {dqn_path}")
 
-    if missing:
-        print(f"\nFicheiros em falta: {missing}")
-        print("Corre primeiro o evaluate.py para DQN e PPO neste cenário.")
-        return False
+    if algo in ["both", "ppo"]:
+        if os.path.exists(ppo_path):
+            ppo = load_json(ppo_path)
+        else:
+            print(f"\nFicheiro PPO em falta: {ppo_path}")
 
-    return True
+    if dqn is None and ppo is None:
+        print("Corre primeiro o evaluate_updated.py para pelo menos um algoritmo neste cenário.")
+        return None, None
+
+    return dqn, ppo
 
 
 def save_plot(fig, plots_dir, filename):
@@ -82,103 +131,143 @@ def save_plot(fig, plots_dir, filename):
     print(f"Guardado: {path}")
 
 
-def plot_summary(dqn, ppo, scenario, scenario_name, plots_dir):
-    metrics = ["Success (%)", "Non-Collision (%)", "Collision (%)"]
+def available_algorithms(dqn, ppo):
+    labels = []
+    datasets = []
+    colors = []
 
-    dqn_vals = [
-        dqn["success_rate_pct"],
-        dqn["non_collision_rate_pct"],
-        dqn["collision_rate_pct"],
-    ]
+    if dqn is not None:
+        labels.append("DQN")
+        datasets.append(dqn)
+        colors.append(DQN_COLOR)
 
-    ppo_vals = [
-        ppo["success_rate_pct"],
-        ppo["non_collision_rate_pct"],
-        ppo["collision_rate_pct"],
-    ]
+    if ppo is not None:
+        labels.append("PPO")
+        datasets.append(ppo)
+        colors.append(PPO_COLOR)
 
+    return labels, datasets, colors
+
+
+def grouped_bar_plot(metrics, values_by_algo, labels, colors, title, ylabel, plots_dir, filename, ylim=None, pct=False):
     x = np.arange(len(metrics))
-    width = 0.35
+    n_algos = len(labels)
+    width = 0.35 if n_algos == 2 else 0.45
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=(max(7, len(metrics) * 2.2), 5))
     fig.patch.set_facecolor(BG_COLOR)
 
-    bars_dqn = ax.bar(
-        x - width / 2,
-        dqn_vals,
-        width,
-        label="DQN",
-        color=DQN_COLOR,
-        alpha=0.85,
-    )
+    if n_algos == 1:
+        offsets = [0]
+    else:
+        offsets = np.linspace(-width / 2, width / 2, n_algos)
 
-    bars_ppo = ax.bar(
-        x + width / 2,
-        ppo_vals,
-        width,
-        label="PPO",
-        color=PPO_COLOR,
-        alpha=0.85,
-    )
+    all_vals = []
 
-    for bar, val in zip(list(bars_dqn) + list(bars_ppo), dqn_vals + ppo_vals):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 1.0,
-            f"{val:.1f}%",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            color="#F1F5F9",
+    for offset, label, color, vals in zip(offsets, labels, colors, values_by_algo):
+        all_vals.extend(vals)
+        bars = ax.bar(
+            x + offset,
+            vals,
+            width,
+            label=label,
+            color=color,
+            alpha=0.85,
         )
 
-    ax.set_title(f"{scenario.upper()} — {scenario_name} Summary", pad=12)
+        max_val = max([v for v in all_vals if isinstance(v, (int, float))] + [1])
+        for bar, val in zip(bars, vals):
+            if isinstance(val, (int, float)):
+                suffix = "%" if pct else ""
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + max_val * 0.02,
+                    f"{val:.1f}{suffix}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                    color="#F1F5F9",
+                )
+
+    ax.set_title(title, pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(metrics)
-    ax.set_ylabel("Episodes (%)")
-    ax.set_ylim(0, 110)
+    ax.set_ylabel(ylabel)
+
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+    else:
+        max_val = max([v for v in all_vals if isinstance(v, (int, float))] + [1])
+        ax.set_ylim(0, max_val * 1.25)
+
     ax.legend(facecolor=BG_COLOR, edgecolor="#94A3B8")
     ax.grid(axis="y")
     fig.tight_layout()
 
-    save_plot(fig, plots_dir, f"{scenario}_summary_bar.png")
+    save_plot(fig, plots_dir, filename)
+
+
+def plot_summary(dqn, ppo, scenario, scenario_name, plots_dir):
+    labels, datasets, colors = available_algorithms(dqn, ppo)
+
+    metrics = ["Success (%)", "Non-Collision (%)", "Collision (%)"]
+    values_by_algo = [
+        [
+            data["success_rate_pct"],
+            data["non_collision_rate_pct"],
+            data["collision_rate_pct"],
+        ]
+        for data in datasets
+    ]
+
+    grouped_bar_plot(
+        metrics=metrics,
+        values_by_algo=values_by_algo,
+        labels=labels,
+        colors=colors,
+        title=f"{scenario.upper()} — {scenario_name} Summary",
+        ylabel="Episodes (%)",
+        plots_dir=plots_dir,
+        filename=f"{scenario}_summary_bar.png",
+        ylim=(0, 110),
+        pct=True,
+    )
 
 
 def plot_lane_deviation(dqn, ppo, scenario, scenario_name, plots_dir):
-    dqn_devs = [
-        ep["lane_deviation"]
-        for ep in dqn["episodes"]
-        if ep.get("lane_deviation") is not None
-    ]
+    labels = []
+    devs = []
+    colors = []
 
-    ppo_devs = [
-        ep["lane_deviation"]
-        for ep in ppo["episodes"]
-        if ep.get("lane_deviation") is not None
-    ]
+    if dqn is not None:
+        labels.append("DQN")
+        devs.append([ep["lane_deviation"] for ep in dqn["episodes"] if ep.get("lane_deviation") is not None])
+        colors.append(DQN_COLOR)
+
+    if ppo is not None:
+        labels.append("PPO")
+        devs.append([ep["lane_deviation"] for ep in ppo["episodes"] if ep.get("lane_deviation") is not None])
+        colors.append(PPO_COLOR)
+
+    if not devs:
+        return
 
     fig, ax = plt.subplots(figsize=(7, 5))
     fig.patch.set_facecolor(BG_COLOR)
 
     bp = ax.boxplot(
-        [dqn_devs, ppo_devs],
-        labels=["DQN", "PPO"],
+        devs,
+        labels=labels,
         patch_artist=True,
         medianprops=dict(color="#F1F5F9", linewidth=2),
         whiskerprops=dict(color="#94A3B8"),
         capprops=dict(color="#94A3B8"),
-        flierprops=dict(
-            marker="o",
-            color="#94A3B8",
-            alpha=0.5,
-            markersize=4,
-        ),
+        flierprops=dict(marker="o", color="#94A3B8", alpha=0.5, markersize=4),
     )
 
-    bp["boxes"][0].set_facecolor(DQN_COLOR)
-    bp["boxes"][0].set_alpha(0.75)
-    bp["boxes"][1].set_facecolor(PPO_COLOR)
-    bp["boxes"][1].set_alpha(0.75)
+    for box, color in zip(bp["boxes"], colors):
+        box.set_facecolor(color)
+        box.set_alpha(0.75)
 
     ax.set_title(f"{scenario.upper()} — Lane Deviation Distribution", pad=12)
     ax.set_ylabel("Lane deviation (normalised, 0–1)")
@@ -189,6 +278,8 @@ def plot_lane_deviation(dqn, ppo, scenario, scenario_name, plots_dir):
 
 
 def plot_termination(dqn, ppo, scenario, scenario_name, plots_dir):
+    labels, datasets, _ = available_algorithms(dqn, ppo)
+
     reasons = ["max_steps", "early_end", "collision"]
 
     colors = {
@@ -197,7 +288,7 @@ def plot_termination(dqn, ppo, scenario, scenario_name, plots_dir):
         "collision": "#EF4444",
     }
 
-    labels = {
+    reason_labels = {
         "max_steps": "Completed",
         "early_end": "Early End",
         "collision": "Collision",
@@ -211,23 +302,21 @@ def plot_termination(dqn, ppo, scenario, scenario_name, plots_dir):
             for reason in reasons
         }
 
-    dqn_pcts = get_percentages(dqn)
-    ppo_pcts = get_percentages(ppo)
+    pcts = [get_percentages(data) for data in datasets]
 
     fig, ax = plt.subplots(figsize=(6, 5))
     fig.patch.set_facecolor(BG_COLOR)
 
-    algos = ["DQN", "PPO"]
-    bottoms = [0.0, 0.0]
+    bottoms = [0.0 for _ in labels]
 
     for reason in reasons:
-        vals = [dqn_pcts[reason], ppo_pcts[reason]]
+        vals = [item[reason] for item in pcts]
 
         ax.bar(
-            algos,
+            labels,
             vals,
             bottom=bottoms,
-            label=labels[reason],
+            label=reason_labels[reason],
             color=colors[reason],
             alpha=0.85,
             width=0.5,
@@ -246,10 +335,7 @@ def plot_termination(dqn, ppo, scenario, scenario_name, plots_dir):
                     fontweight="bold",
                 )
 
-        bottoms = [
-            bottom + value
-            for bottom, value in zip(bottoms, vals)
-        ]
+        bottoms = [bottom + value for bottom, value in zip(bottoms, vals)]
 
     ax.set_title(f"{scenario.upper()} — Termination Breakdown", pad=12)
     ax.set_ylabel("Episodes (%)")
@@ -262,31 +348,39 @@ def plot_termination(dqn, ppo, scenario, scenario_name, plots_dir):
 
 
 def plot_reward(dqn, ppo, scenario, scenario_name, plots_dir):
-    dqn_rewards = [ep["total_reward"] for ep in dqn["episodes"]]
-    ppo_rewards = [ep["total_reward"] for ep in ppo["episodes"]]
+    labels = []
+    rewards = []
+    colors = []
+
+    if dqn is not None:
+        labels.append("DQN")
+        rewards.append([ep["total_reward"] for ep in dqn["episodes"]])
+        colors.append(DQN_COLOR)
+
+    if ppo is not None:
+        labels.append("PPO")
+        rewards.append([ep["total_reward"] for ep in ppo["episodes"]])
+        colors.append(PPO_COLOR)
+
+    if not rewards:
+        return
 
     fig, ax = plt.subplots(figsize=(7, 5))
     fig.patch.set_facecolor(BG_COLOR)
 
     bp = ax.boxplot(
-        [dqn_rewards, ppo_rewards],
-        labels=["DQN", "PPO"],
+        rewards,
+        labels=labels,
         patch_artist=True,
         medianprops=dict(color="#F1F5F9", linewidth=2),
         whiskerprops=dict(color="#94A3B8"),
         capprops=dict(color="#94A3B8"),
-        flierprops=dict(
-            marker="o",
-            color="#94A3B8",
-            alpha=0.5,
-            markersize=4,
-        ),
+        flierprops=dict(marker="o", color="#94A3B8", alpha=0.5, markersize=4),
     )
 
-    bp["boxes"][0].set_facecolor(DQN_COLOR)
-    bp["boxes"][0].set_alpha(0.75)
-    bp["boxes"][1].set_facecolor(PPO_COLOR)
-    bp["boxes"][1].set_alpha(0.75)
+    for box, color in zip(bp["boxes"], colors):
+        box.set_facecolor(color)
+        box.set_alpha(0.75)
 
     ax.set_title(f"{scenario.upper()} — Total Reward Distribution", pad=12)
     ax.set_ylabel("Total reward per episode")
@@ -297,205 +391,115 @@ def plot_reward(dqn, ppo, scenario, scenario_name, plots_dir):
 
 
 def plot_obstacle_activity(dqn, ppo, scenario, scenario_name, plots_dir):
-    metrics = [
-        "Obstacle Active\nSteps",
-        "Obstacle Active\nRate (%)",
+    labels, datasets, colors = available_algorithms(dqn, ppo)
+
+    metrics = ["Obstacle Active\nSteps", "Obstacle Active\nRate (%)"]
+    values_by_algo = [
+        [
+            metric(data, "avg_obstacle_active_steps"),
+            metric(data, "avg_obstacle_active_rate_pct"),
+        ]
+        for data in datasets
     ]
 
-    dqn_vals = [
-        dqn.get("avg_obstacle_active_steps", 0),
-        dqn.get("avg_obstacle_active_rate_pct", 0),
-    ]
-
-    ppo_vals = [
-        ppo.get("avg_obstacle_active_steps", 0),
-        ppo.get("avg_obstacle_active_rate_pct", 0),
-    ]
-
-    x = np.arange(len(metrics))
-    width = 0.35
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    fig.patch.set_facecolor(BG_COLOR)
-
-    bars_dqn = ax.bar(
-        x - width / 2,
-        dqn_vals,
-        width,
-        label="DQN",
-        color=DQN_COLOR,
-        alpha=0.85,
+    grouped_bar_plot(
+        metrics=metrics,
+        values_by_algo=values_by_algo,
+        labels=labels,
+        colors=colors,
+        title=f"{scenario.upper()} — Dynamic Obstacle Activity",
+        ylabel="Value",
+        plots_dir=plots_dir,
+        filename=f"{scenario}_obstacle_activity.png",
     )
-
-    bars_ppo = ax.bar(
-        x + width / 2,
-        ppo_vals,
-        width,
-        label="PPO",
-        color=PPO_COLOR,
-        alpha=0.85,
-    )
-
-    max_val = max(max(dqn_vals), max(ppo_vals), 1)
-
-    for bar, val in zip(list(bars_dqn) + list(bars_ppo), dqn_vals + ppo_vals):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + max_val * 0.02,
-            f"{val:.1f}",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            color="#F1F5F9",
-        )
-
-    ax.set_title(f"{scenario.upper()} — Dynamic Obstacle Activity", pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels(metrics)
-    ax.set_ylabel("Value")
-    ax.set_ylim(0, max_val * 1.25)
-    ax.legend(facecolor=BG_COLOR, edgecolor="#94A3B8")
-    ax.grid(axis="y")
-    fig.tight_layout()
-
-    save_plot(fig, plots_dir, f"{scenario}_obstacle_activity.png")
 
 
 def plot_stopping_behavior(dqn, ppo, scenario, scenario_name, plots_dir):
+    labels, datasets, colors = available_algorithms(dqn, ppo)
+
     metrics = [
-        "Stopped\nSteps",
-        "Stopped\nRate (%)",
-        "Stopped When\nObstacle",
-        "Stop@Obstacle\nRate (%)",
+        "Stop Success\nRate (%)",
+        "Resume Success\nRate (%)",
+        "Physical Stop\nRate (%)",
+        "Action Stop\nRate (%)",
     ]
 
-    dqn_vals = [
-        dqn.get("avg_stopped_steps", 0),
-        dqn.get("avg_stopped_rate_pct", 0),
-        dqn.get("avg_stopped_when_obstacle", 0),
-        dqn.get("avg_stopped_when_obstacle_rate_pct", 0),
+    values_by_algo = [
+        [
+            metric(data, "stop_success_rate_pct"),
+            metric(data, "resume_success_rate_pct"),
+            metric(data, "avg_physically_stopped_when_obstacle_rate_pct"),
+            metric(
+                data,
+                "avg_stopped_when_obstacle_action_based_rate_pct",
+                "avg_stopped_when_obstacle_rate_pct",
+            ),
+        ]
+        for data in datasets
     ]
 
-    ppo_vals = [
-        ppo.get("avg_stopped_steps", 0),
-        ppo.get("avg_stopped_rate_pct", 0),
-        ppo.get("avg_stopped_when_obstacle", 0),
-        ppo.get("avg_stopped_when_obstacle_rate_pct", 0),
-    ]
-
-    x = np.arange(len(metrics))
-    width = 0.35
-
-    fig, ax = plt.subplots(figsize=(10, 5))
-    fig.patch.set_facecolor(BG_COLOR)
-
-    bars_dqn = ax.bar(
-        x - width / 2,
-        dqn_vals,
-        width,
-        label="DQN",
-        color=DQN_COLOR,
-        alpha=0.85,
+    grouped_bar_plot(
+        metrics=metrics,
+        values_by_algo=values_by_algo,
+        labels=labels,
+        colors=colors,
+        title=f"{scenario.upper()} — Dynamic Obstacle Safety Behaviour",
+        ylabel="Episodes / steps (%)",
+        plots_dir=plots_dir,
+        filename=f"{scenario}_stopping_behavior.png",
+        ylim=(0, 110),
+        pct=True,
     )
 
-    bars_ppo = ax.bar(
-        x + width / 2,
-        ppo_vals,
-        width,
-        label="PPO",
-        color=PPO_COLOR,
-        alpha=0.85,
-    )
 
-    max_val = max(max(dqn_vals), max(ppo_vals), 1)
+def plot_stop_resume_success(dqn, ppo, scenario, scenario_name, plots_dir):
+    labels, datasets, colors = available_algorithms(dqn, ppo)
 
-    for bar, val in zip(list(bars_dqn) + list(bars_ppo), dqn_vals + ppo_vals):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + max_val * 0.02,
-            f"{val:.1f}",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            color="#F1F5F9",
-        )
+    metrics = ["Stop Success (%)", "Resume Success (%)"]
 
-    ax.set_title(f"{scenario.upper()} — Stopping Behaviour", pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels(metrics)
-    ax.set_ylabel("Value")
-    ax.set_ylim(0, max_val * 1.25)
-    ax.legend(facecolor=BG_COLOR, edgecolor="#94A3B8")
-    ax.grid(axis="y")
-    fig.tight_layout()
-
-    save_plot(fig, plots_dir, f"{scenario}_stopping_behavior.png")
-
-
-def plot_comparison(
-    reference_dqn,
-    reference_ppo,
-    current_dqn,
-    current_ppo,
-    reference_scenario,
-    current_scenario,
-    plots_dir,
-):
-    labels = [
-        reference_scenario.upper(),
-        current_scenario.upper(),
+    values_by_algo = [
+        [
+            metric(data, "stop_success_rate_pct"),
+            metric(data, "resume_success_rate_pct"),
+        ]
+        for data in datasets
     ]
 
+    grouped_bar_plot(
+        metrics=metrics,
+        values_by_algo=values_by_algo,
+        labels=labels,
+        colors=colors,
+        title=f"{scenario.upper()} — Stop vs Resume Success",
+        ylabel="Episodes (%)",
+        plots_dir=plots_dir,
+        filename=f"{scenario}_stop_resume_success.png",
+        ylim=(0, 110),
+        pct=True,
+    )
+
+
+def plot_comparison(reference_dqn, reference_ppo, current_dqn, current_ppo, reference_scenario, current_scenario, plots_dir):
+    labels = [reference_scenario.upper(), current_scenario.upper()]
     x = np.arange(len(labels))
     width = 0.35
-
-    dqn_vals = [
-        reference_dqn["success_rate_pct"],
-        current_dqn["success_rate_pct"],
-    ]
-
-    ppo_vals = [
-        reference_ppo["success_rate_pct"],
-        current_ppo["success_rate_pct"],
-    ]
 
     fig, ax = plt.subplots(figsize=(7, 5))
     fig.patch.set_facecolor(BG_COLOR)
 
-    bars_dqn = ax.bar(
-        x - width / 2,
-        dqn_vals,
-        width,
-        label="DQN",
-        color=DQN_COLOR,
-        alpha=0.85,
-    )
+    if reference_dqn is not None and current_dqn is not None:
+        dqn_vals = [reference_dqn["success_rate_pct"], current_dqn["success_rate_pct"]]
+        bars_dqn = ax.bar(x - width / 2, dqn_vals, width, label="DQN", color=DQN_COLOR, alpha=0.85)
+        for bar, val in zip(bars_dqn, dqn_vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f"{val:.1f}%", ha="center", va="bottom", fontsize=9, color="#F1F5F9")
 
-    bars_ppo = ax.bar(
-        x + width / 2,
-        ppo_vals,
-        width,
-        label="PPO",
-        color=PPO_COLOR,
-        alpha=0.85,
-    )
+    if reference_ppo is not None and current_ppo is not None:
+        ppo_vals = [reference_ppo["success_rate_pct"], current_ppo["success_rate_pct"]]
+        bars_ppo = ax.bar(x + width / 2, ppo_vals, width, label="PPO", color=PPO_COLOR, alpha=0.85)
+        for bar, val in zip(bars_ppo, ppo_vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f"{val:.1f}%", ha="center", va="bottom", fontsize=9, color="#F1F5F9")
 
-    for bar, val in zip(list(bars_dqn) + list(bars_ppo), dqn_vals + ppo_vals):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 1.0,
-            f"{val:.1f}%",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            color="#F1F5F9",
-        )
-
-    ax.set_title(
-        f"{reference_scenario.upper()} vs {current_scenario.upper()} — Success Rate",
-        pad=12,
-    )
-
+    ax.set_title(f"{reference_scenario.upper()} vs {current_scenario.upper()} — Success Rate", pad=12)
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.set_ylabel("Task success rate (%)")
@@ -504,70 +508,61 @@ def plot_comparison(
     ax.grid(axis="y")
     fig.tight_layout()
 
-    save_plot(
-        fig,
-        plots_dir,
-        f"{current_scenario}_vs_{reference_scenario}_success.png",
-    )
+    save_plot(fig, plots_dir, f"{current_scenario}_vs_{reference_scenario}_success.png")
 
 
 def print_table(dqn, ppo, dynamic=False):
-    width = 88 if dynamic else 70
+    width = 96 if dynamic else 76
 
     print(f"\n{'─' * width}")
-    print(f"{'Metric':<42} {'DQN':>18} {'PPO':>18}")
+    print(f"{'Metric':<46} {'DQN':>20} {'PPO':>20}")
     print(f"{'─' * width}")
 
     rows = [
-        ("Success Rate (%)", dqn["success_rate_pct"], ppo["success_rate_pct"]),
-        ("Non-Collision Rate (%)", dqn["non_collision_rate_pct"], ppo["non_collision_rate_pct"]),
-        ("Collision Rate (%)", dqn["collision_rate_pct"], ppo["collision_rate_pct"]),
-        ("Avg Steps", dqn["avg_steps"], ppo["avg_steps"]),
-        ("Avg Lap Steps", dqn["avg_lap_steps"] or "N/A", ppo["avg_lap_steps"] or "N/A"),
-        ("Avg Reward", dqn["avg_reward"], ppo["avg_reward"]),
-        ("Avg Lane Deviation", dqn["avg_lane_deviation"], ppo["avg_lane_deviation"]),
+        ("Success Rate (%)", metric(dqn, "success_rate_pct", default="N/A"), metric(ppo, "success_rate_pct", default="N/A")),
+        ("Non-Collision Rate (%)", metric(dqn, "non_collision_rate_pct", default="N/A"), metric(ppo, "non_collision_rate_pct", default="N/A")),
+        ("Collision Rate (%)", metric(dqn, "collision_rate_pct", default="N/A"), metric(ppo, "collision_rate_pct", default="N/A")),
+        ("Avg Steps", metric(dqn, "avg_steps", default="N/A"), metric(ppo, "avg_steps", default="N/A")),
+        ("Avg Lap Steps", metric(dqn, "avg_lap_steps", default="N/A"), metric(ppo, "avg_lap_steps", default="N/A")),
+        ("Avg Reward", metric(dqn, "avg_reward", default="N/A"), metric(ppo, "avg_reward", default="N/A")),
+        ("Avg Lane Deviation", metric(dqn, "avg_lane_deviation", default="N/A"), metric(ppo, "avg_lane_deviation", default="N/A")),
     ]
 
     if dynamic:
         rows.extend([
-            ("Avg Obstacle Active Steps", dqn.get("avg_obstacle_active_steps", "N/A"), ppo.get("avg_obstacle_active_steps", "N/A")),
-            ("Avg Obstacle Active Rate (%)", dqn.get("avg_obstacle_active_rate_pct", "N/A"), ppo.get("avg_obstacle_active_rate_pct", "N/A")),
-            ("Avg Stopped Steps", dqn.get("avg_stopped_steps", "N/A"), ppo.get("avg_stopped_steps", "N/A")),
-            ("Avg Stopped Rate (%)", dqn.get("avg_stopped_rate_pct", "N/A"), ppo.get("avg_stopped_rate_pct", "N/A")),
-            ("Avg Stopped When Obstacle", dqn.get("avg_stopped_when_obstacle", "N/A"), ppo.get("avg_stopped_when_obstacle", "N/A")),
-            ("Avg Stop@Obstacle Rate (%)", dqn.get("avg_stopped_when_obstacle_rate_pct", "N/A"), ppo.get("avg_stopped_when_obstacle_rate_pct", "N/A")),
+            ("Avg Obstacle Active Steps", metric(dqn, "avg_obstacle_active_steps", default="N/A"), metric(ppo, "avg_obstacle_active_steps", default="N/A")),
+            ("Avg Obstacle Active Rate (%)", metric(dqn, "avg_obstacle_active_rate_pct", default="N/A"), metric(ppo, "avg_obstacle_active_rate_pct", default="N/A")),
+            ("Stop Success Rate (%)", metric(dqn, "stop_success_rate_pct", default="N/A"), metric(ppo, "stop_success_rate_pct", default="N/A")),
+            ("Resume Success Rate (%)", metric(dqn, "resume_success_rate_pct", default="N/A"), metric(ppo, "resume_success_rate_pct", default="N/A")),
+            ("Physical Stop@Obstacle Rate (%)", metric(dqn, "avg_physically_stopped_when_obstacle_rate_pct", default="N/A"), metric(ppo, "avg_physically_stopped_when_obstacle_rate_pct", default="N/A")),
+            ("Action Stop@Obstacle Rate (%)", metric(dqn, "avg_stopped_when_obstacle_action_based_rate_pct", "avg_stopped_when_obstacle_rate_pct", default="N/A"), metric(ppo, "avg_stopped_when_obstacle_action_based_rate_pct", "avg_stopped_when_obstacle_rate_pct", default="N/A")),
+            ("Avg Physical Stop Steps", metric(dqn, "avg_physically_stopped_steps", default="N/A"), metric(ppo, "avg_physically_stopped_steps", default="N/A")),
+            ("Avg Action Stop Steps", metric(dqn, "avg_stopped_steps_action_based", "avg_stopped_steps", default="N/A"), metric(ppo, "avg_stopped_steps_action_based", "avg_stopped_steps", default="N/A")),
         ])
 
     for label, dqn_value, ppo_value in rows:
-        print(f"  {label:<40} {str(dqn_value):>18} {str(ppo_value):>18}")
+        if dqn_value is None:
+            dqn_value = "N/A"
+        if ppo_value is None:
+            ppo_value = "N/A"
+        print(f"  {label:<44} {str(dqn_value):>20} {str(ppo_value):>20}")
 
     print(f"{'─' * width}\n")
 
 
-def print_comparison_delta(
-    reference_dqn,
-    reference_ppo,
-    current_dqn,
-    current_ppo,
-    reference_scenario,
-    current_scenario,
-):
-    dqn_delta = (
-        current_dqn["success_rate_pct"]
-        - reference_dqn["success_rate_pct"]
-    )
-
-    ppo_delta = (
-        current_ppo["success_rate_pct"]
-        - reference_ppo["success_rate_pct"]
-    )
-
+def print_comparison_delta(reference_dqn, reference_ppo, current_dqn, current_ppo, reference_scenario, current_scenario):
     print(f"\n=== {reference_scenario.upper()} → {current_scenario.upper()} Impact ===")
-    print(f"DQN success change: {dqn_delta:+.1f}%")
-    print(f"PPO success change: {ppo_delta:+.1f}%")
+
+    if reference_dqn is not None and current_dqn is not None:
+        dqn_delta = current_dqn["success_rate_pct"] - reference_dqn["success_rate_pct"]
+        print(f"DQN success change: {dqn_delta:+.1f}%")
+
+    if reference_ppo is not None and current_ppo is not None:
+        ppo_delta = current_ppo["success_rate_pct"] - reference_ppo["success_rate_pct"]
+        print(f"PPO success change: {ppo_delta:+.1f}%")
 
 
-def validate_scenario(scenario):
+def validate_scenario(scenario, algo="both"):
     scenario = scenario.lower()
 
     scenario_config = SCENARIOS[scenario]
@@ -577,85 +572,37 @@ def validate_scenario(scenario):
 
     os.makedirs(plots_dir, exist_ok=True)
 
-    dqn_path, ppo_path = get_result_paths(scenario_config)
+    dqn, ppo = load_available_results(scenario, scenario_config, algo)
 
-    if not check_files(dqn_path, ppo_path):
+    if dqn is None and ppo is None:
         return
-
-    dqn = load_json(dqn_path)
-    ppo = load_json(ppo_path)
 
     print(f"\n=== {scenario.upper()} — {scenario_name} Validation Report ===")
 
-    print_table(
-        dqn=dqn,
-        ppo=ppo,
-        dynamic=dynamic,
-    )
+    print_table(dqn=dqn, ppo=ppo, dynamic=dynamic)
 
     print("A gerar plots...")
 
-    plot_summary(
-        dqn=dqn,
-        ppo=ppo,
-        scenario=scenario,
-        scenario_name=scenario_name,
-        plots_dir=plots_dir,
-    )
-
-    plot_lane_deviation(
-        dqn=dqn,
-        ppo=ppo,
-        scenario=scenario,
-        scenario_name=scenario_name,
-        plots_dir=plots_dir,
-    )
-
-    plot_termination(
-        dqn=dqn,
-        ppo=ppo,
-        scenario=scenario,
-        scenario_name=scenario_name,
-        plots_dir=plots_dir,
-    )
-
-    plot_reward(
-        dqn=dqn,
-        ppo=ppo,
-        scenario=scenario,
-        scenario_name=scenario_name,
-        plots_dir=plots_dir,
-    )
+    plot_summary(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
+    plot_lane_deviation(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
+    plot_termination(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
+    plot_reward(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
 
     if dynamic:
-        plot_obstacle_activity(
-            dqn=dqn,
-            ppo=ppo,
-            scenario=scenario,
-            scenario_name=scenario_name,
-            plots_dir=plots_dir,
-        )
+        plot_obstacle_activity(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
+        plot_stopping_behavior(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
+        plot_stop_resume_success(dqn=dqn, ppo=ppo, scenario=scenario, scenario_name=scenario_name, plots_dir=plots_dir)
 
-        plot_stopping_behavior(
-            dqn=dqn,
-            ppo=ppo,
-            scenario=scenario,
-            scenario_name=scenario_name,
-            plots_dir=plots_dir,
-        )
-
-    comparison_scenario = scenario_config["compare_with"]
+    comparison_scenario = scenario_config.get("compare_with")
 
     if comparison_scenario is not None:
         comparison_config = SCENARIOS[comparison_scenario]
-        comparison_dqn_path, comparison_ppo_path = get_result_paths(
-            comparison_config
-        )
+        comparison_dqn_path, comparison_ppo_path = get_result_paths(comparison_scenario, comparison_config)
 
-        if os.path.exists(comparison_dqn_path) and os.path.exists(comparison_ppo_path):
-            comparison_dqn = load_json(comparison_dqn_path)
-            comparison_ppo = load_json(comparison_ppo_path)
+        comparison_dqn = load_json(comparison_dqn_path) if os.path.exists(comparison_dqn_path) else None
+        comparison_ppo = load_json(comparison_ppo_path) if os.path.exists(comparison_ppo_path) else None
 
+        if comparison_dqn is not None or comparison_ppo is not None:
             print_comparison_delta(
                 reference_dqn=comparison_dqn,
                 reference_ppo=comparison_ppo,
@@ -695,6 +642,14 @@ if __name__ == "__main__":
         help="Scenario to validate: c1, c2, c3, c4, c5 or c6.",
     )
 
+    parser.add_argument(
+        "--algo",
+        required=False,
+        default="both",
+        choices=["both", "dqn", "ppo"],
+        help="Algorithm to validate: both, dqn or ppo. Default: both.",
+    )
+
     args = parser.parse_args()
 
-    validate_scenario(args.scenario)
+    validate_scenario(args.scenario, args.algo)

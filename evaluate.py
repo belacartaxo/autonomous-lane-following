@@ -12,6 +12,8 @@ import platform
 from collections import Counter
 
 import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
 
 import configs.env_config as cfg
 from configs.evaluation_config import (
@@ -26,7 +28,7 @@ from configs.evaluation_config import (
 
 def setup_webots_path():
     if platform.system() == "Windows":
-        webots_home = r"C:\Program Files\Webots"
+        webots_home = r"C:\Users\rodri\AppData\Local\Programs\Webots"
     elif platform.system() == "Darwin":
         webots_home = "/Applications/Webots.app"
     else:
@@ -41,11 +43,64 @@ def setup_webots_path():
         "python",
     )
 
+    webots_controller_path = os.path.join(
+        webots_home,
+        "lib",
+        "controller",
+    )
+
     if webots_python_path not in sys.path:
         sys.path.insert(0, webots_python_path)
 
+    if platform.system() == "Windows":
+        os.environ["PATH"] = webots_controller_path + os.pathsep + os.environ["PATH"]
 
-def build_env(algo: str, scenario_config: dict):
+
+
+class LegacyCriticalObsWrapper(gym.ObservationWrapper):
+    
+
+    LEGACY_REMOVED_KEYS = [
+        "inactive_stopped_steps_norm",
+    ]
+
+    def __init__(self, env):
+        super().__init__(env)
+
+        if isinstance(env.observation_space, spaces.Dict):
+            new_spaces = dict(env.observation_space.spaces)
+
+            for key in self.LEGACY_REMOVED_KEYS:
+                new_spaces.pop(key, None)
+
+            self.observation_space = spaces.Dict(new_spaces)
+
+    def observation(self, observation):
+        if isinstance(observation, dict):
+            observation = dict(observation)
+
+            for key in self.LEGACY_REMOVED_KEYS:
+                observation.pop(key, None)
+
+        return observation
+
+
+def model_expects_legacy_critical_obs(model) -> bool:
+    
+    obs_space = getattr(model, "observation_space", None)
+
+    if not isinstance(obs_space, spaces.Dict):
+        return False
+
+    keys = set(obs_space.spaces.keys())
+
+    return (
+        "critical_obstacle_active" in keys
+        and "inactive_stopped_steps_norm" not in keys
+    )
+
+
+def build_env(algo: str, scenario_config: dict, legacy_critical_obs: bool = False):
     from env.webots_env import WebotsVehicleEnv
     from env.webots_critical_env import WebotsCriticalVehicleEnv
     from env.lidar_noise_wrapper import LiDARNoiseWrapper
@@ -63,6 +118,9 @@ def build_env(algo: str, scenario_config: dict):
             dropout_prob=DROPOUT_PROB,
         )
 
+    if legacy_critical_obs and scenario_config["env_type"] == "critical":
+        env = LegacyCriticalObsWrapper(env)
+
     if algo.lower() == "dqn":
         env = DiscreteActionWrapper(env)
 
@@ -77,12 +135,80 @@ def get_base_env(env):
 
     return base
 
+def get_vehicle_position(base_env):
+    """
+    Returns the current vehicle position as a numpy array.
+    Uses the Webots Supervisor node when available.
+    """
+    possible_attrs = [
+        "vehicle_node",
+        "robot_node",
+        "car_node",
+        "vehicle",
+        "robot",
+    ]
 
-def load_model(algo: str, model_path: str, env):
+    for attr in possible_attrs:
+        node = getattr(base_env, attr, None)
+
+        if node is not None and hasattr(node, "getPosition"):
+            try:
+                return np.array(node.getPosition(), dtype=np.float32)
+            except Exception:
+                pass
+
+    # Fallback: try GPS sensor if available
+    gps = getattr(base_env, "gps", None)
+
+    if gps is not None and hasattr(gps, "getValues"):
+        try:
+            return np.array(gps.getValues(), dtype=np.float32)
+        except Exception:
+            pass
+
+    return None
+
+
+def is_vehicle_physically_stopped(prev_pos, current_pos, threshold=0.005):
+    """
+    Checks whether the vehicle has physically stopped based on displacement.
+    """
+    if prev_pos is None or current_pos is None:
+        return False
+
+    displacement = float(np.linalg.norm(current_pos - prev_pos))
+    return displacement < threshold
+
+
+def is_vehicle_moving(prev_pos, current_pos, threshold=0.02):
+    """
+    Checks whether the vehicle resumed movement after a stop.
+    """
+    if prev_pos is None or current_pos is None:
+        return False
+
+    displacement = float(np.linalg.norm(current_pos - prev_pos))
+    return displacement > threshold
+
+def load_model(algo: str, model_path: str):
     from stable_baselines3 import DQN, PPO
 
     model_class = DQN if algo.lower() == "dqn" else PPO
-    return model_class.load(model_path, env=env)
+
+    # Some saved SB3 models contain runtime objects that may not deserialize
+    # cleanly across Python/Numpy/SB3 versions. They are not needed for
+    # deterministic evaluation, so we replace them safely.
+    custom_objects = {
+        "_last_obs": None,
+        "_last_original_obs": None,
+        "_last_episode_starts": None,
+    }
+
+    return model_class.load(
+        model_path,
+        env=None,
+        custom_objects=custom_objects,
+    )
 
 
 def is_dynamic_obstacle_active(base_env):
@@ -100,7 +226,7 @@ def is_dynamic_obstacle_active(base_env):
 def is_stop_or_brake_action(algo: str, action):
     if algo.lower() == "dqn":
         try:
-            return int(action) == 5
+            return int(action) in [5, 6]
         except Exception:
             return False
 
@@ -163,8 +289,24 @@ def run(algo: str, scenario: str, model_path: str | None = None):
 
     print(f"{'=' * 70}\n")
 
-    env = build_env(algo, scenario_config)
-    model = load_model(algo, model_path, env)
+    model = load_model(algo, model_path)
+
+    legacy_critical_obs = (
+        scenario_config["env_type"] == "critical"
+        and model_expects_legacy_critical_obs(model)
+    )
+
+    if legacy_critical_obs:
+        print(
+            "  Legacy model detected: removing "
+            "'inactive_stopped_steps_norm' from observations."
+        )
+
+    env = build_env(
+        algo=algo,
+        scenario_config=scenario_config,
+        legacy_critical_obs=legacy_critical_obs,
+    )
     base_env = get_base_env(env)
 
     results = []
@@ -181,6 +323,18 @@ def run(algo: str, scenario: str, model_path: str | None = None):
         obstacle_active_steps = 0
         stopped_steps = 0
         stopped_when_obstacle = 0
+        
+        # Dynamic-obstacle safety metrics
+        physically_stopped_steps = 0
+        physically_stopped_when_obstacle = 0
+        stop_success = False
+        obstacle_was_active = False
+        obstacle_cleared_after_active = False
+        resume_success = False
+        resume_check_steps = 0
+        MAX_RESUME_CHECK_STEPS = 300
+
+        prev_vehicle_pos = get_vehicle_position(base_env)
 
         episode_start = time.time()
 
@@ -196,14 +350,53 @@ def run(algo: str, scenario: str, model_path: str | None = None):
             steps += 1
 
             if scenario_config["has_dynamic_obstacles"]:
+                current_vehicle_pos = get_vehicle_position(base_env)
+
+                physically_stopped = is_vehicle_physically_stopped(
+                    prev_vehicle_pos,
+                    current_vehicle_pos,
+                    threshold=0.005,
+                )
+
+                physically_moving = is_vehicle_moving(
+                    prev_vehicle_pos,
+                    current_vehicle_pos,
+                    threshold=0.02,
+                )
+
                 if obstacle_active:
                     obstacle_active_steps += 1
+                    obstacle_was_active = True
 
                 if stop_or_brake:
                     stopped_steps += 1
 
                 if obstacle_active and stop_or_brake:
                     stopped_when_obstacle += 1
+
+                if physically_stopped:
+                    physically_stopped_steps += 1
+
+                if obstacle_active and physically_stopped:
+                    physically_stopped_when_obstacle += 1
+                    stop_success = True
+
+                # Detect transition: obstacle was active before and is now cleared
+                if obstacle_was_active and not obstacle_active:
+                    obstacle_cleared_after_active = True
+
+                # After the obstacle clears, check whether the vehicle resumes movement
+                if obstacle_cleared_after_active and not resume_success:
+                    resume_check_steps += 1
+
+                    if physically_moving:
+                        resume_success = True
+
+                    if resume_check_steps >= MAX_RESUME_CHECK_STEPS:
+                        # Stop checking after a fixed window
+                        obstacle_cleared_after_active = False
+
+                prev_vehicle_pos = current_vehicle_pos
 
             if detect_collision(obs, info):
                 collision = True
@@ -251,17 +444,38 @@ def run(algo: str, scenario: str, model_path: str | None = None):
         }
 
         if scenario_config["has_dynamic_obstacles"]:
+            physical_stop_when_obstacle_rate = (
+                physically_stopped_when_obstacle / obstacle_active_steps * 100
+                if obstacle_active_steps > 0
+                else 0.0
+            )
+
             result.update(
                 {
                     "obstacle_active_steps": obstacle_active_steps,
                     "obstacle_active_rate_pct": round(obstacle_active_rate, 2),
-                    "stopped_steps": stopped_steps,
-                    "stopped_rate_pct": round(stopped_rate, 2),
-                    "stopped_when_obstacle": stopped_when_obstacle,
-                    "stopped_when_obstacle_rate_pct": round(
+
+                    # Action-based stopping metrics
+                    "stopped_steps_action_based": stopped_steps,
+                    "stopped_rate_action_based_pct": round(stopped_rate, 2),
+                    "stopped_when_obstacle_action_based": stopped_when_obstacle,
+                    "stopped_when_obstacle_action_based_rate_pct": round(
                         stopped_when_obstacle_rate,
                         2,
                     ),
+
+                    # Physical stopping metrics
+                    "physically_stopped_steps": physically_stopped_steps,
+                    "physically_stopped_when_obstacle": physically_stopped_when_obstacle,
+                    "physically_stopped_when_obstacle_rate_pct": round(
+                        physical_stop_when_obstacle_rate,
+                        2,
+                    ),
+
+                    # Episode-level safety metrics
+                    "stop_success": stop_success,
+                    "resume_success": resume_success,
+                    "resume_check_steps": resume_check_steps,
                 }
             )
 
@@ -303,6 +517,7 @@ def run(algo: str, scenario: str, model_path: str | None = None):
         "condition": scenario.upper(),
         "condition_name": scenario_config["name"],
         "model_path": model_path,
+        "legacy_critical_obs": legacy_critical_obs,
         "n_episodes": N_EPISODES,
         "max_steps": cfg.MAX_EPISODE_STEPS,
         "seed": SEED,
@@ -332,27 +547,56 @@ def run(algo: str, scenario: str, model_path: str | None = None):
                     float(np.mean([r["obstacle_active_rate_pct"] for r in results])),
                     2,
                 ),
-                "avg_stopped_steps": round(
-                    float(np.mean([r["stopped_steps"] for r in results])),
+
+                # Action-based stopping
+                "avg_stopped_steps_action_based": round(
+                    float(np.mean([r["stopped_steps_action_based"] for r in results])),
                     1,
                 ),
-                "avg_stopped_rate_pct": round(
-                    float(np.mean([r["stopped_rate_pct"] for r in results])),
-                    2,
-                ),
-                "avg_stopped_when_obstacle": round(
-                    float(np.mean([r["stopped_when_obstacle"] for r in results])),
+                "avg_stopped_when_obstacle_action_based": round(
+                    float(np.mean([r["stopped_when_obstacle_action_based"] for r in results])),
                     1,
                 ),
-                "avg_stopped_when_obstacle_rate_pct": round(
+                "avg_stopped_when_obstacle_action_based_rate_pct": round(
                     float(
                         np.mean(
                             [
-                                r["stopped_when_obstacle_rate_pct"]
+                                r["stopped_when_obstacle_action_based_rate_pct"]
                                 for r in results
                             ]
                         )
                     ),
+                    2,
+                ),
+
+                # Physical stopping
+                "avg_physically_stopped_steps": round(
+                    float(np.mean([r["physically_stopped_steps"] for r in results])),
+                    1,
+                ),
+                "avg_physically_stopped_when_obstacle": round(
+                    float(np.mean([r["physically_stopped_when_obstacle"] for r in results])),
+                    1,
+                ),
+                "avg_physically_stopped_when_obstacle_rate_pct": round(
+                    float(
+                        np.mean(
+                            [
+                                r["physically_stopped_when_obstacle_rate_pct"]
+                                for r in results
+                            ]
+                        )
+                    ),
+                    2,
+                ),
+
+                # Main safety metrics
+                "stop_success_rate_pct": round(
+                    float(np.mean([r["stop_success"] for r in results]) * 100),
+                    2,
+                ),
+                "resume_success_rate_pct": round(
+                    float(np.mean([r["resume_success"] for r in results]) * 100),
                     2,
                 ),
             }
@@ -367,14 +611,33 @@ def run(algo: str, scenario: str, model_path: str | None = None):
     print(f"  Avg reward/ep       : {avg_reward:.1f}")
     print(f"  Avg lane deviation  : {avg_lane_deviation:.3f}")
     print(f"  Terminations        : {dict(termination_counts)}")
+    if scenario_config["has_dynamic_obstacles"]:
+        print(
+            f"  Stop success rate   : "
+            f"{summary['stop_success_rate_pct']:.1f}%"
+        )
+        print(
+            f"  Resume success rate : "
+            f"{summary['resume_success_rate_pct']:.1f}%"
+        )
+        print(
+            f"  Physical stop rate  : "
+            f"{summary['avg_physically_stopped_when_obstacle_rate_pct']:.1f}%"
+        )
+        print(
+            f"  Action stop rate    : "
+            f"{summary['avg_stopped_when_obstacle_action_based_rate_pct']:.1f}%"
+        )
     print(f"  Total time          : {total_time:.0f}s")
     print(f"{'─' * 70}\n")
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
+    result_prefix = scenario_config.get("result_prefix", scenario)
+
     output_path = os.path.join(
         RESULTS_DIR,
-        f"{scenario_config['result_prefix']}_{algo}.json",
+        f"{result_prefix}_{algo}.json",
     )
 
     with open(output_path, "w") as file:
