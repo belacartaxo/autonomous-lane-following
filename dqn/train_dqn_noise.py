@@ -1,8 +1,7 @@
 import os
 import sys
 
-# ─── Paths do projeto ──────────────────────────────────────────────────────────
-# Este ficheiro está dentro da pasta dqn/
+# Project Paths 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
@@ -13,7 +12,7 @@ from webots_setup import setup_webots_path
 setup_webots_path()
 
 
-# ─── Imports ───────────────────────────────────────────────────────────────────
+# Imports 
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
@@ -24,7 +23,7 @@ from env.discrete_action_wrapper import DiscreteActionWrapper
 from env.lidar_noise_wrapper import LiDARNoiseWrapper
 
 
-# ─── Configurações de treino ───────────────────────────────────────────────────
+# Training Configurations 
 TOTAL_TIMESTEPS = 1_600_000
 
 NOISE_STD = 0.1
@@ -34,7 +33,7 @@ LIDAR_MAX_RANGE = 100.0
 MAX_EPISODE_STEPS = 5000
 
 
-# ─── Diretórios ────────────────────────────────────────────────────────────────
+# Directories 
 LOG_DIR = os.path.join(BASE_DIR, "logs", "dqn_noise")
 SAVE_DIR = os.path.join(BASE_DIR, "models", "dqn_noise")
 BEST_MODEL_DIR = os.path.join(SAVE_DIR, "dqn_noise_best")
@@ -47,7 +46,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 
-# ─── Ambiente C2: Sensor Noise ─────────────────────────────────────────────────
+# Environment C2: Sensor Noise 
 base_env = WebotsVehicleEnv()
 
 env = LiDARNoiseWrapper(
@@ -57,22 +56,22 @@ env = LiDARNoiseWrapper(
     lidar_max_range=LIDAR_MAX_RANGE,
 )
 
-# DQN precisa de ações discretas
+# DQN requires discrete actions
 env = DiscreteActionWrapper(env)
 
-# Mesmo limite usado no PPO
+# Same limit used in PPO
 env = TimeLimit(env, max_episode_steps=MAX_EPISODE_STEPS)
 
-# Monitor para logging
+# Monitor for logging
 env = Monitor(env, LOG_DIR)
 
 
-# ─── Carregar modelo existente ou criar novo ───────────────────────────────────
+# Load existing model or create a new one 
 model_zip_path = FINAL_MODEL_PATH + ".zip"
 replay_buffer_path = REPLAY_BUFFER_PATH + ".pkl"
 
 if os.path.exists(model_zip_path):
-    print(f"A carregar modelo DQN-Noise existente: {model_zip_path}")
+    print(f"Loading existing DQN-Noise model: {model_zip_path}")
 
     model = DQN.load(
         FINAL_MODEL_PATH,
@@ -82,15 +81,15 @@ if os.path.exists(model_zip_path):
     )
 
     if os.path.exists(replay_buffer_path):
-        print(f"A carregar replay buffer existente: {replay_buffer_path}")
+        print(f"Loading existing replay buffer: {replay_buffer_path}")
         model.load_replay_buffer(REPLAY_BUFFER_PATH)
     else:
-        print("Replay buffer não encontrado. O treino continua apenas a partir dos pesos do modelo.")
+        print("Replay buffer not found. Training continues from model weights only.")
 
-    print("Modelo carregado. O treino continua a partir do estado anterior.")
+    print("Model loaded. Training continues from the previous state.")
 
 else:
-    print("Nenhum modelo existente encontrado. A criar novo modelo DQN-Noise...")
+    print("No existing model found. Creating a new DQN-Noise model...")
 
     model = DQN(
         policy="MultiInputPolicy",
@@ -110,7 +109,7 @@ else:
     )
 
 
-# ─── Callbacks ─────────────────────────────────────────────────────────────────
+# Callbacks
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
@@ -136,8 +135,8 @@ callbacks = CallbackList([
 ])
 
 
-# ─── Treino ────────────────────────────────────────────────────────────────────
-print("A iniciar/continuar treino DQN com ruído LiDAR (C2)...")
+# Training 
+print("Starting/continuing DQN training with LiDAR noise (C2)...")
 
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
@@ -147,11 +146,11 @@ model.learn(
 )
 
 
-# ─── Guardar modelo final e replay buffer ──────────────────────────────────────
+# Save final model and replay buffer 
 model.save(FINAL_MODEL_PATH)
 model.save_replay_buffer(REPLAY_BUFFER_PATH)
 
-print("Treino concluído.")
-print(f"Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
-print(f"Replay buffer guardado em: {REPLAY_BUFFER_PATH}.pkl")
-print(f"Melhor modelo guardado em: {os.path.join(BEST_MODEL_DIR, 'best_model.zip')}")
+print("Training completed.")
+print(f"Final model saved at: {FINAL_MODEL_PATH}.zip")
+print(f"Replay buffer saved at: {REPLAY_BUFFER_PATH}.pkl")
+print(f"Best model saved at: {os.path.join(BEST_MODEL_DIR, 'best_model.zip')}")
