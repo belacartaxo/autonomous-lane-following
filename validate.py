@@ -6,14 +6,7 @@ Usage:
     python validate_updated.py --scenario c5 --algo ppo
     python validate_updated.py --scenario c5 --algo dqn
 
-This version is compatible with the updated dynamic-obstacle metrics produced by
-`evaluate_updated.py`, including:
-    - stop_success_rate_pct
-    - resume_success_rate_pct
-    - avg_physically_stopped_when_obstacle_rate_pct
-    - avg_stopped_when_obstacle_action_based_rate_pct
-
-It also keeps backward-compatible fallbacks for older JSON files.
+ .
 """
 
 import argparse
