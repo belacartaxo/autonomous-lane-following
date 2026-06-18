@@ -195,9 +195,7 @@ def load_model(algo: str, model_path: str):
 
     model_class = DQN if algo.lower() == "dqn" else PPO
 
-    # Some saved SB3 models contain runtime objects that may not deserialize
-    # cleanly across Python/Numpy/SB3 versions. They are not needed for
-    # deterministic evaluation, so we replace them safely.
+   
     custom_objects = {
         "_last_obs": None,
         "_last_original_obs": None,
