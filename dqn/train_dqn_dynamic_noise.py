@@ -38,7 +38,7 @@ def make_env():
     env = LiDARNoiseWrapper(base_env, noise_std=0.1, dropout_prob=0.1)
 
     # Convert continuous actions to discrete (Required for DQN)
-    env = DiscreteActionWrapper(env)
+    env = DiscreteActionWrapper(env, include_brake=True)
 
     # Time limit and monitoring
     env = TimeLimit(env, max_episode_steps=5000)
