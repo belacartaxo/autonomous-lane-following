@@ -63,6 +63,8 @@ modules are:
 - tqdm
 - rich
 - matplotlib
+torch
+cloudpickle
 
 Create and activate a virtual environment before installing the dependencies.
 
