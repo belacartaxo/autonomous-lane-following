@@ -1,10 +1,7 @@
+import os 
 
-# ─── Ajusta este path para o teu Mac ───────────────────────────────────────────
-import sys
-sys.path.insert(0, '/Applications/Webots.app/Contents/lib/controller/python')
-import os
-os.environ['WEBOTS_HOME'] = '/Applications/Webots.app/Contents'
-# ────────────────────────────────────────────────────────────────────────────────
+from webots_setup import setup_webots_path
+setup_webots_path()
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback, CallbackList
