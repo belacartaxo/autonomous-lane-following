@@ -5,3 +5,5 @@ tensorboard
 tqdm 
 rich
 matplotlib
+torch
+cloudpickle
