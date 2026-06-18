@@ -9,14 +9,9 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-# ─── Webots path para macOS ────────────────────────────────────────────────────
-WEBOTS_HOME = "/Applications/Webots.app/Contents"
-WEBOTS_PYTHON_PATH = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
+from webots_setup import setup_webots_path
+setup_webots_path()
 
-os.environ["WEBOTS_HOME"] = WEBOTS_HOME
-
-if WEBOTS_PYTHON_PATH not in sys.path:
-    sys.path.insert(0, WEBOTS_PYTHON_PATH)
 
 # ─── Imports ───────────────────────────────────────────────────────────────────
 from stable_baselines3 import DQN
