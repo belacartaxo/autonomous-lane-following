@@ -65,7 +65,9 @@ LOST_LINE_DONE_PENALTY = 1.0
 STUCK_DONE_PENALTY = 1.0
 COLLISION_PENALTY = 1.0
 
+
 # Lane following steering
+# Lane steering rewards
 LANE_STEERING_REWARD = 0.20
 LANE_WRONG_STEERING_PENALTY = 0.30
 LANE_LOW_STEERING_PENALTY = 0.20
@@ -74,52 +76,47 @@ LANE_HIGH_ERROR_SPEED_PENALTY = 0.20
 # Recovery scaling
 RECOVERY_CENTER_WEIGHT = 0.40
 
-# ─── Critical dynamic obstacle (fase ativa) ───────────────────────────────────
+# Critical dynamic obstacle
 
 CRITICAL_MAX_NOT_STOPPED_STEPS = 250
+
 CRITICAL_FULL_STOP_SPEED_THRESHOLD = 0.005
 CRITICAL_FORWARD_THROTTLE_THRESHOLD = 0.05
 
-# Reward por estar parado com obstáculo ativo.
-# O super() dá no máximo ~1.0 por andar bem na linha.
-# Este valor tem de ser competitivo com isso para o agente preferir parar.
-CRITICAL_STOP_REWARD = 0.70
+# [ALTERADO] Reduzido de 0.45 → 0.30 para não criar associação tão forte com paragem
+CRITICAL_STOP_REWARD = 0.30
+# [ALTERADO] Reduzido de 0.25 → 0.20
+CRITICAL_NOT_STOPPED_PENALTY = 0.20
+CRITICAL_FORWARD_PENALTY_WEIGHT = 0.35
 
-# Penalização por estar em movimento com obstáculo ativo
-CRITICAL_NOT_STOPPED_PENALTY = 0.50
-
-# Penalização extra proporcional ao throttle com obstáculo ativo
-CRITICAL_FORWARD_PENALTY_WEIGHT = 0.50
-
-# Penalização por carregar no acelerador mesmo estando parado
-CRITICAL_STOPPED_WITH_THROTTLE_PENALTY = 0.30
+CRITICAL_STOPPED_WITH_THROTTLE_PENALTY = 0.20
 
 CRITICAL_RESUME_FORWARD_REWARD = 0.12
 CRITICAL_UNNECESSARY_STOP_PENALTY = 0.20
 
-# Penalizações terminais
 CRITICAL_FAILED_TO_STOP_PENALTY = 1.0
 CRITICAL_COLLISION_PENALTY = 1.0
 
-# ─── Fase inativa (sem obstáculo ativo) ───────────────────────────────────────
-# NOTA: estes valores são DELIBERADAMENTE menores que os da fase ativa.
-# O super() já dá reward de lane following. Estes são apenas incentivos
-# adicionais para retomar mais depressa após o obstáculo passar.
+# [ALTERADO] Todos os valores de inatividade aumentados significativamente
+# para forçar o agente a retomar depois do obstáculo passar
 
+# Movimento mínimo esperado por step quando não há obstáculo
 CRITICAL_INACTIVE_MIN_MOVEMENT = 0.015
-CRITICAL_INACTIVE_LOW_MOVEMENT_PENALTY = 0.20
-CRITICAL_INACTIVE_NO_THROTTLE_PENALTY = 0.15
-CRITICAL_INACTIVE_FORWARD_BONUS_WEIGHT = 0.15
-CRITICAL_INACTIVE_REVERSE_PENALTY_WEIGHT = 0.25
 
-# Bónus único dado no momento da transição obstáculo → sem obstáculo
-CRITICAL_RESUME_BONUS = 0.50
+# [ALTERADO] 0.25 → 0.60: penalização forte se não se mover
+CRITICAL_INACTIVE_LOW_MOVEMENT_PENALTY = 0.60
 
-# ─── Timeout de inatividade ───────────────────────────────────────────────────
-# 300 steps = margem larga para não interferir com paragens legítimas
-CRITICAL_MAX_INACTIVE_STOPPED_STEPS = 300
-CRITICAL_INACTIVE_TIMEOUT_PENALTY = 1.0
-CRITICAL_INACTIVE_STOPPED_OBS_MAX = 300
+# [ALTERADO] 0.15 → 0.40: penalização forte se não der throttle
+CRITICAL_INACTIVE_NO_THROTTLE_PENALTY = 0.40
+
+# [ALTERADO] 0.12 → 0.35: bónus maior por throttle positivo
+CRITICAL_INACTIVE_FORWARD_BONUS_WEIGHT = 0.35
+
+# [ALTERADO] 0.20 → 0.45: penalização maior por andar para trás desnecessariamente
+CRITICAL_INACTIVE_REVERSE_PENALTY_WEIGHT = 0.45
+
+# [NOVO] Bónus único de retoma quando o obstáculo acaba de desaparecer
+CRITICAL_RESUME_BONUS = 0.80
 
 CRITICAL_ACTIVE_FORWARD_PENALTY_BASE = 0.35
 CRITICAL_ACTIVE_FORWARD_PENALTY_WEIGHT = 0.45
