@@ -27,7 +27,7 @@ class LiDARNoiseWrapper(gym.ObservationWrapper):
         self.lidar_max_range = lidar_max_range
 
     def observation(self, obs):
-        """Modify the observation by applying noise to the LiDAR component"""
+        """Modify the observation by applying noise to the LiDAR component."""
 
         # Create a shallow copy of the observation dictionary
         noisy_obs = dict(obs)
