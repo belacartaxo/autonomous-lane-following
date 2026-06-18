@@ -1,8 +1,34 @@
 """
-Cenários disponíveis: c1-c6
-python evaluate.py --algo ppo --scenario c1
-python evaluate.py --algo dqn --scenario c1
+Unified evaluation script for C1-C6.
+
+
+Before running each scenario, open the corresponding Webots world:
+    C1/C2: default lane-following world
+    C3/C4: static-obstacles world
+    C5/C6: city_dynamic_obstacles.wbt
+
+Evaluation commands:
+    C1 PPO: python evaluate.py --algo ppo --scenario c1
+    C1 DQN: python evaluate.py --algo dqn --scenario c1
+
+    C2 PPO: python evaluate.py --algo ppo --scenario c2
+    C2 DQN: python evaluate.py --algo dqn --scenario c2
+
+    C3 PPO: python evaluate.py --algo ppo --scenario c3
+    C3 DQN: python evaluate.py --algo dqn --scenario c3
+
+    C4 PPO: python evaluate.py --algo ppo --scenario c4
+    C4 DQN: python evaluate.py --algo dqn --scenario c4
+
+    C5 PPO: python evaluate.py --algo ppo --scenario c5
+    C5 DQN: python evaluate.py --algo dqn --scenario c5
+
+    C6 PPO: python evaluate.py --algo ppo --scenario c6
+    C6 DQN: python evaluate.py --algo dqn --scenario c6
+
+
 """
+
 import argparse
 import json
 import os
@@ -239,16 +265,15 @@ def is_stop_or_brake_action(algo: str, action):
 
 
 def detect_collision(obs, info):
-    if info.get("collision", False):
-        return True
+    """
+    Uses the collision flag reported by the environment.
 
-    if isinstance(obs, dict) and "lidar" in obs:
-        try:
-            return bool(np.min(obs["lidar"]) < cfg.COLLISION_DISTANCE)
-        except Exception:
-            return False
-
-    return False
+    We intentionally avoid using the minimum LiDAR value as a collision
+    criterion during evaluation, because C2/C4/C6 apply LiDAR dropout and
+    may create artificial zero readings. Those zeros can otherwise be
+    incorrectly counted as collisions.
+    """
+    return bool(info.get("collision", False))
 
 
 def get_termination(collision: bool, steps: int):
