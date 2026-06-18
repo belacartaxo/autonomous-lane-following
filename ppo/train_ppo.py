@@ -9,39 +9,39 @@ from gymnasium.wrappers import TimeLimit
 from env.webots_env import WebotsVehicleEnv
 from env.webots_critical_env import WebotsCriticalVehicleEnv
 
-# Configurações de Treino
+# Training configurations
 TOTAL_TIMESTEPS = 1_600_000
 
-# Diretórios
+# Directories
 LOG_DIR = "./logs/ppo_baseline/"
 SAVE_DIR = "./models/ppo_baseline/"
 BEST_MODEL_DIR = "./models/ppo_baseline/ppo_best/"
 FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_baseline_final")
 
-# Garantir que as pastas existem
+# Ensure directories exist
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
-# Inicializar Ambiente com Limite de Tempo
+# Initialize environment with time limit
 env = WebotsVehicleEnv()
 #env = WebotsCriticalVehicleEnv()
-env = TimeLimit(env, max_episode_steps=5000) # Limite de 5000 passos por episódio
+env = TimeLimit(env, max_episode_steps=5000)  # Limit of 5000 steps per episode
 
 model_zip_path = FINAL_MODEL_PATH + ".zip"
 
-# Carregar modelo existente ou Criar novo
+# Load existing model or create a new one
 if os.path.exists(model_zip_path):
-    print(f"A carregar modelo PPO existente: {model_zip_path}")
+    print(f"Loading existing PPO model: {model_zip_path}")
     model = PPO.load(
         FINAL_MODEL_PATH,
         env=env,
         tensorboard_log=LOG_DIR,
         verbose=1,
     )
-    print("Modelo carregado. O treino continua a partir do estado anterior.")
+    print("Model loaded. Training continues from the previous state.")
 else:
-    print("Nenhum modelo existente encontrado. A criar novo modelo PPO...")
+    print("No existing model found. Creating a new PPO model...")
     model = PPO(
         policy="MultiInputPolicy",
         env=env,
@@ -57,7 +57,7 @@ else:
         tensorboard_log=LOG_DIR,
     )
 
-# Callbacks para salvar progresso e o melhor modelo
+# Callbacks to save progress and the best model
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
@@ -74,16 +74,16 @@ eval_callback = EvalCallback(
     render=False,
 )
 
-# Iniciar/Continuar Treino
-print("A iniciar/continuar treino PPO...")
+# Start/continue training
+print("Starting/continuing PPO training...")
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
     callback=CallbackList([checkpoint_callback, eval_callback]),
     progress_bar=True,
-    reset_num_timesteps=False, # Mantém o histórico do otimizador para retreino
+    reset_num_timesteps=False,  # Keep the optimizer history for retraining
 )
 
-# Salvar modelo final
+# Save final model
 model.save(FINAL_MODEL_PATH)
 
-print(f"Treino concluído. Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
+print(f"Training completed. Final model saved at: {FINAL_MODEL_PATH}.zip")
