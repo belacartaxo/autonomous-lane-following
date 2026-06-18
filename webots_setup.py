@@ -6,10 +6,6 @@ This module avoids user-specific hardcoded paths
 It first checks WEBOTS_HOME. If WEBOTS_HOME is not defined, it tries common
 installation paths for Windows 10 and Ubuntu Linux 20.04.6 LTS.
 
-Use this in scripts that import the Webots controller API:
-
-    from webots_setup import setup_webots_path
-    setup_webots_path()
 """
 
 import os
@@ -53,8 +49,6 @@ def find_webots_home():
         ]
 
     else:
-        # The project is only required to support Windows 10 and Ubuntu 20.04.6.
-        # Unsupported systems are not targeted by the assignment.
         candidates = []
 
     for path in candidates:
