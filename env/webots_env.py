@@ -3,16 +3,10 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-import sys
-import os
+from webots_setup import setup_webots_path
+setup_webots_path()
 
 import configs.env_config as cfg
-
-WEBOTS_HOME = os.environ.get("WEBOTS_HOME", r"C:\Program Files\Webots")
-WEBOTS_PYTHON_PATH = os.path.join(WEBOTS_HOME, "lib", "controller", "python")
-
-if WEBOTS_PYTHON_PATH not in sys.path:
-    sys.path.append(WEBOTS_PYTHON_PATH)
 
 from controller import Supervisor
 
