@@ -44,7 +44,7 @@ BEST_MODEL_DIR = "./models/ppo_dynamic_noise/ppo_dynamic_noise_best/"
 FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "ppo_dynamic_noise_final")
 
 # Caminho corrigido apontando exatamente para o modelo base sem criar pastas duplicadas
-PRETRAINED_MODEL_PATH = "./models/ppo_dynamic/ppo_dynamic_best/best_model.zip"
+PRETRAINED_MODEL_PATH = "./best_models/ppo_dynamic_best_model.zip.zip"
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
