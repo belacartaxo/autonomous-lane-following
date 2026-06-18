@@ -118,7 +118,10 @@ def build_env(algo: str, scenario_config: dict, legacy_critical_obs: bool = Fals
         env = LegacyCriticalObsWrapper(env)
 
     if algo.lower() == "dqn":
-        env = DiscreteActionWrapper(env)
+        env = DiscreteActionWrapper(
+            env,
+            include_brake=scenario_config["has_dynamic_obstacles"],
+        )
 
     return env
 
@@ -220,7 +223,11 @@ def is_dynamic_obstacle_active(base_env):
 def is_stop_or_brake_action(algo: str, action):
     if algo.lower() == "dqn":
         try:
-            return int(action) in [5, 6]
+            # In dynamic scenarios, the DiscreteActionWrapper uses:
+            # 6 -> zero throttle / coast
+            # 7 -> soft brake
+            # 8 -> full brake
+            return int(action) in [6, 7, 8]
         except Exception:
             return False
 
@@ -232,7 +239,6 @@ def is_stop_or_brake_action(algo: str, action):
     throttle = float(action_array[1])
 
     return throttle <= 0.05
-
 
 def detect_collision(obs, info):
     """
