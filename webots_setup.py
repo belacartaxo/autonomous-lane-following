@@ -1,8 +1,7 @@
 r"""
 Portable Webots setup helper.
 
-This module avoids user-specific hardcoded paths such as:
-    C:\Users\<USERNAME>\AppData\Local\Programs\Webots
+This module avoids user-specific hardcoded paths
 
 It first checks WEBOTS_HOME. If WEBOTS_HOME is not defined, it tries common
 installation paths for Windows 10 and Ubuntu Linux 20.04.6 LTS.
