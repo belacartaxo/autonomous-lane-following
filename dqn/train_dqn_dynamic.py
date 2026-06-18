@@ -29,7 +29,7 @@ os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 # Environment C3: Dynamic obstacles, no noise 
 def make_env():
     base_env = WebotsCriticalVehicleEnv()
-    env = DiscreteActionWrapper(base_env)
+    env = DiscreteActionWrapper(base_env, include_brake=True)
     env = TimeLimit(env, max_episode_steps=5000)
     env = Monitor(env, LOG_DIR)
     return env
