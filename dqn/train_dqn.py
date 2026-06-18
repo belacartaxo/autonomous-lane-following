@@ -1,25 +1,6 @@
 import os
-import sys
-import platform
-
-if platform.system() == "Windows":
-    WEBOTS_HOME = r"C:\Program Files\Webots"
-elif platform.system() == "Darwin":
-    WEBOTS_HOME = "/Applications/Webots.app"
-else:
-    WEBOTS_HOME = "/usr/local/webots"
-
-os.environ["WEBOTS_HOME"] = WEBOTS_HOME
-
-WEBOTS_PYTHON_PATH = os.path.join(
-    WEBOTS_HOME,
-    "lib",
-    "controller",
-    "python"
-)
-
-if WEBOTS_PYTHON_PATH not in sys.path:
-    sys.path.insert(0, WEBOTS_PYTHON_PATH)
+from webots_setup import setup_webots_path
+setup_webots_path()
 
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import (
