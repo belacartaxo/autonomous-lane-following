@@ -12,10 +12,10 @@ from env.webots_critical_env import WebotsCriticalVehicleEnv
 from env.discrete_action_wrapper import DiscreteActionWrapper
 
 
-# ─── Configurações de treino ──────────────────────────────────────────────────
+# Training Configurations 
 TOTAL_TIMESTEPS = 1_600_000
 
-# ─── Diretórios ────────────────────────────────────────────────────────────────
+# Directories 
 LOG_DIR = "./logs/dqn_dynamic/"
 SAVE_DIR = "./models/dqn_dynamic/"
 BEST_MODEL_DIR = "./models/dqn_dynamic/dqn_dynamic_best/"
@@ -26,7 +26,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 
-# ─── Ambiente C3: dynamic obstacles, sem noise ────────────────────────────────
+# Environment C3: Dynamic obstacles, no noise 
 def make_env():
     base_env = WebotsCriticalVehicleEnv()
     env = DiscreteActionWrapper(base_env)
@@ -38,11 +38,11 @@ def make_env():
 env = make_env()
 
 
-# ─── Carregar modelo existente ou criar novo ──────────────────────────────────
+# Load existing model or create a new one 
 model_zip_path = FINAL_MODEL_PATH + ".zip"
 
 if os.path.exists(model_zip_path):
-    print(f"A carregar modelo DQN-Dynamic existente: {model_zip_path}")
+    print(f"Loading existing DQN-Dynamic model: {model_zip_path}")
 
     model = DQN.load(
         FINAL_MODEL_PATH,
@@ -51,10 +51,10 @@ if os.path.exists(model_zip_path):
         verbose=1,
     )
 
-    print("Modelo carregado. O treino continua a partir do estado anterior.")
+    print("Model loaded. Training continues from the previous state.")
 
 else:
-    print("Nenhum modelo existente encontrado. A criar novo modelo DQN-Dynamic...")
+    print("No existing model found. Creating new DQN-Dynamic model...")
 
     model = DQN(
         policy="MultiInputPolicy",
@@ -74,7 +74,7 @@ else:
     )
 
 
-# ─── Callbacks ────────────────────────────────────────────────────────────────
+# Callbacks 
 checkpoint_callback = CheckpointCallback(
     save_freq=10_000,
     save_path=SAVE_DIR,
@@ -95,8 +95,8 @@ eval_callback = EvalCallback(
 )
 
 
-# ─── Treino ───────────────────────────────────────────────────────────────────
-print("A iniciar treino DQN com obstáculos dinâmicos (C3)...")
+# Training 
+print("Starting DQN training with dynamic obstacles (C3)...")
 
 model.learn(
     total_timesteps=TOTAL_TIMESTEPS,
@@ -110,7 +110,7 @@ model.learn(
 
 model.save(FINAL_MODEL_PATH)
 
-print(f"Treino concluído. Modelo final guardado em: {FINAL_MODEL_PATH}.zip")
-print(f"Melhor modelo guardado em: {os.path.join(BEST_MODEL_DIR, 'best_model.zip')}")
+print(f"Training completed. Final model saved at: {FINAL_MODEL_PATH}.zip")
+print(f"Best model saved at: {os.path.join(BEST_MODEL_DIR, 'best_model.zip')}")
 
 env.close()
