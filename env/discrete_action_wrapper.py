@@ -2,6 +2,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 
+
 class DiscreteActionWrapper(gym.ActionWrapper):
     """
     Converts a continuous action space into a discrete one for DQN.
