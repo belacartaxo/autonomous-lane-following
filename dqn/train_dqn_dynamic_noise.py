@@ -23,7 +23,7 @@ BEST_MODEL_DIR = "./models/dqn_dynamic_noise/dqn_dynamic_noise_best/"
 FINAL_MODEL_PATH = os.path.join(SAVE_DIR, "dqn_dynamic_noise_final")
 
 # Path pointing exactly to the best clean DQN model
-PRETRAINED_MODEL_PATH = "./best_models/best_model_dqn_noise.zip"
+PRETRAINED_MODEL_PATH = "./best_models/c6_dqn_dynamic_noise_best.zip"
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(SAVE_DIR, exist_ok=True)
